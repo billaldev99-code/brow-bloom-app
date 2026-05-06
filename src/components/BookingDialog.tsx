@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, Eye, Check } from "lucide-react";
+import { Sparkles, Eye, Check, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
 const services = {
   ongles: [
@@ -23,11 +25,15 @@ const services = {
   ],
 };
 
-const slots = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30"];
+const ALL_SLOTS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30"];
 
-interface Props {
-  trigger: React.ReactNode;
-}
+const formSchema = z.object({
+  name: z.string().trim().min(2, "Nom trop court").max(80),
+  phone: z.string().trim().min(6, "Téléphone invalide").max(20),
+  email: z.string().trim().email("Email invalide").max(120),
+});
+
+interface Props { trigger: React.ReactNode; }
 
 export const BookingDialog = ({ trigger }: Props) => {
   const [step, setStep] = useState(1);
@@ -36,15 +42,51 @@ export const BookingDialog = ({ trigger }: Props) => {
   const [service, setService] = useState<string | null>(null);
   const [date, setDate] = useState<string>("");
   const [slot, setSlot] = useState<string | null>(null);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!date) return;
+    setLoading(true);
+    setSlot(null);
+    supabase.rpc("get_booked_slots", { _date: date }).then(({ data }) => {
+      setBookedSlots((data || []).map((r: any) => r.appointment_time));
+      setLoading(false);
+    });
+  }, [date]);
 
   const reset = () => {
-    setStep(1); setCategory(null); setService(null); setDate(""); setSlot(null);
+    setStep(1); setCategory(null); setService(null); setDate(""); setSlot(null); setBookedSlots([]);
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const parsed = formSchema.safeParse({
+      name: fd.get("name"), phone: fd.get("phone"), email: fd.get("email"),
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.errors[0].message);
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.from("appointments").insert({
+      category: category!,
+      service: service!,
+      appointment_date: date,
+      appointment_time: slot!,
+      client_name: parsed.data.name,
+      client_phone: parsed.data.phone,
+      client_email: parsed.data.email,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error("Erreur lors de la réservation");
+      return;
+    }
     toast.success("Rendez-vous confirmé ✨", {
-      description: `${service} le ${date} à ${slot}. Un email de confirmation vous a été envoyé.`,
+      description: `${service} le ${date} à ${slot}`,
     });
     setOpen(false);
     setTimeout(reset, 400);
@@ -57,9 +99,7 @@ export const BookingDialog = ({ trigger }: Props) => {
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-lg bg-card">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">
-            Réserver — étape {step}/4
-          </DialogTitle>
+          <DialogTitle className="font-display text-2xl">Réserver — étape {step}/4</DialogTitle>
         </DialogHeader>
 
         {step === 1 && (
@@ -67,7 +107,7 @@ export const BookingDialog = ({ trigger }: Props) => {
             <p className="text-sm text-muted-foreground">Choisissez votre catégorie</p>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => { setCategory("ongles"); setStep(2); }}
-                className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center group">
+                className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
                 <Sparkles className="mx-auto mb-2 text-gold" />
                 <div className="font-display text-lg">Ongles</div>
               </button>
@@ -105,14 +145,24 @@ export const BookingDialog = ({ trigger }: Props) => {
             {date && (
               <div>
                 <Label>Créneaux disponibles</Label>
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {slots.map((t) => (
-                    <button key={t} onClick={() => setSlot(t)}
-                      className={`rounded-xl border p-2 text-sm transition ${slot === t ? "border-gold bg-secondary text-primary" : "border-border hover:border-gold"}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                {loading ? (
+                  <div className="flex justify-center py-4"><Loader2 className="animate-spin text-gold" /></div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {ALL_SLOTS.map((t) => {
+                      const taken = bookedSlots.includes(t);
+                      return (
+                        <button key={t} disabled={taken} onClick={() => setSlot(t)}
+                          className={`rounded-xl border p-2 text-sm transition ${
+                            taken ? "opacity-30 line-through cursor-not-allowed" :
+                            slot === t ? "border-gold bg-secondary text-primary" : "border-border hover:border-gold"
+                          }`}>
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
             <Button disabled={!date || !slot} onClick={() => setStep(4)} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
@@ -129,18 +179,18 @@ export const BookingDialog = ({ trigger }: Props) => {
             </div>
             <div>
               <Label htmlFor="name">Nom complet</Label>
-              <Input id="name" required maxLength={80} className="mt-1" />
+              <Input id="name" name="name" required maxLength={80} className="mt-1" />
             </div>
             <div>
               <Label htmlFor="phone">Téléphone</Label>
-              <Input id="phone" type="tel" required maxLength={20} className="mt-1" />
+              <Input id="phone" name="phone" type="tel" required maxLength={20} className="mt-1" />
             </div>
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required maxLength={120} className="mt-1" />
+              <Input id="email" name="email" type="email" required maxLength={120} className="mt-1" />
             </div>
-            <Button type="submit" className="w-full bg-gold text-gold-foreground hover:bg-gold/90 shadow-gold">
-              <Check className="mr-2 h-4 w-4" /> Confirmer ma réservation
+            <Button type="submit" disabled={submitting} className="w-full bg-gold text-gold-foreground hover:bg-gold/90 shadow-gold">
+              {submitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><Check className="mr-2 h-4 w-4" /> Confirmer</>}
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               Confirmation par email + SMS. Rappel 24h avant.
