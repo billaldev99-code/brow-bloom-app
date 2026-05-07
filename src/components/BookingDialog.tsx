@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Sparkles, Eye, Check, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { createAppointment } from "@/integrations/api";
 import { z } from "zod";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const services = {
   ongles: [
@@ -50,10 +52,16 @@ export const BookingDialog = ({ trigger }: Props) => {
     if (!date) return;
     setLoading(true);
     setSlot(null);
-    supabase.rpc("get_booked_slots", { _date: date }).then(({ data }) => {
-      setBookedSlots((data || []).map((r: any) => r.appointment_time));
-      setLoading(false);
-    });
+    fetch(`${API_URL}/api/booked-slots?date=${date}`)
+      .then(res => res.json())
+      .then(data => {
+        setBookedSlots((data || []).map((r: any) => r.appointment_time));
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
   }, [date]);
 
   const reset = () => {
@@ -71,20 +79,22 @@ export const BookingDialog = ({ trigger }: Props) => {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("appointments").insert({
-      category: category!,
-      service: service!,
-      appointment_date: date,
-      appointment_time: slot!,
-      client_name: parsed.data.name,
-      client_phone: parsed.data.phone,
-      client_email: parsed.data.email,
-    });
-    setSubmitting(false);
-    if (error) {
+    try {
+      await createAppointment({
+        category: category!,
+        service: service!,
+        appointment_date: date,
+        appointment_time: slot!,
+        client_name: parsed.data.name,
+        client_phone: parsed.data.phone,
+        client_email: parsed.data.email,
+      });
+    } catch (error) {
+      setSubmitting(false);
       toast.error("Erreur lors de la réservation");
       return;
     }
+    setSubmitting(false);
     toast.success("Rendez-vous confirmé ✨", {
       description: `${service} le ${date} à ${slot}`,
     });

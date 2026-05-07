@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
 import { z } from "zod";
+import { login, signup } from "@/integrations/api";
 
 const schema = z.object({
   email: z.string().trim().email("Email invalide").max(120),
@@ -20,11 +20,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) navigate("/admin");
-    });
-    supabase.auth.getSession().then(({ data }) => { if (data.session) navigate("/admin"); });
-    return () => sub.subscription.unsubscribe();
+    const token = localStorage.getItem("token");
+    if (token) navigate("/admin");
   }, [navigate]);
 
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -33,13 +30,20 @@ const Auth = () => {
     const parsed = schema.safeParse({ email: fd.get("email"), password: fd.get("password") });
     if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
     setLoading(true);
-    const { email, password } = parsed.data;
-    const { error } = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/admin` } });
-    setLoading(false);
-    if (error) { toast.error(error.message); return; }
-    if (mode === "signup") toast.success("Compte créé ! Vérifiez vos emails ou connectez-vous.");
+    try {
+      const { email, password } = parsed.data;
+      const { token, userId } = mode === "login"
+        ? await login(email, password)
+        : await signup(email, password);
+      localStorage.setItem("token", token);
+      localStorage.setItem("userId", userId);
+      toast.success(mode === "signup" ? "Compte créé !" : "Connecté !");
+      navigate("/admin");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -67,9 +71,6 @@ const Auth = () => {
           className="w-full mt-4 text-sm text-muted-foreground hover:text-gold transition">
           {mode === "login" ? "Pas de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
         </button>
-        <p className="text-xs text-muted-foreground text-center mt-6">
-          Le 1er compte créé doit être promu admin manuellement dans la base.
-        </p>
       </Card>
     </div>
   );

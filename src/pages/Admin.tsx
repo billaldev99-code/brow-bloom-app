@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X } from "lucide-react";
+import { getAppointments, updateAppointmentStatus, deleteAppointment } from "@/integrations/api";
 
 interface Appointment {
-  id: string;
+  id: number;
   category: string;
   service: string;
   appointment_date: string;
@@ -28,77 +28,68 @@ const PRICES: Record<string, number> = {
 const Admin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!session) navigate("/auth");
-    });
     init();
-    return () => sub.subscription.unsubscribe();
   }, []);
 
   const init = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { navigate("/auth"); return; }
-
-    const { data: roles } = await supabase.from("user_roles")
-      .select("role").eq("user_id", session.user.id).eq("role", "admin").maybeSingle();
-
-    if (!roles) {
-      setIsAdmin(false);
-      setLoading(false);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/auth");
       return;
     }
-    setIsAdmin(true);
-    await load();
+    await load(token);
   };
 
-  const load = async () => {
+  const load = async (token: string) => {
     setLoading(true);
-    const { data } = await supabase.from("appointments")
-      .select("*").order("appointment_date", { ascending: true }).order("appointment_time");
-    setAppointments((data as Appointment[]) || []);
-    setLoading(false);
+    try {
+      const data = await getAppointments(token);
+      setAppointments(data);
+    } catch (err) {
+      toast.error("Erreur de chargement");
+      localStorage.removeItem("token");
+      navigate("/auth");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
-    if (error) { toast.error("Erreur"); return; }
-    toast.success("Mis à jour");
-    load();
+  const updateStatus = async (id: number, status: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await updateAppointmentStatus(id, status, token);
+      toast.success("Mis à jour");
+      await load(token);
+    } catch (err) {
+      toast.error("Erreur");
+    }
   };
 
-  const remove = async (id: string) => {
+  const remove = async (id: number) => {
     if (!confirm("Supprimer ce rendez-vous ?")) return;
-    const { error } = await supabase.from("appointments").delete().eq("id", id);
-    if (error) { toast.error("Erreur"); return; }
-    toast.success("Supprimé");
-    load();
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await deleteAppointment(id, token);
+      toast.success("Supprimé");
+      await load(token);
+    } catch (err) {
+      toast.error("Erreur");
+    }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    navigate("/auth");
   };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-gold h-8 w-8" /></div>;
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 gradient-soft">
-        <Card className="p-8 max-w-md text-center">
-          <h2 className="font-display text-2xl mb-3">Accès refusé</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Votre compte n'est pas administrateur. Demandez à un admin de vous attribuer le rôle dans la table <code className="bg-secondary px-1 rounded">user_roles</code>.
-          </p>
-          <Button onClick={logout} variant="outline">Se déconnecter</Button>
-        </Card>
-      </div>
-    );
   }
 
   const confirmed = appointments.filter(a => a.status === "confirmed");

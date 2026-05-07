@@ -232,8 +232,8 @@ const Index = () => {
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Contact</span>
             <h2 className="font-display text-4xl md:text-5xl mt-3 mb-8">Venez nous rendre visite</h2>
-            <div className="space-y-4">
-              <Info icon={MapPin} label="12 rue des Lilas, 75011 Paris" />
+            <div className="space-y-4">12 rue des Lilas, 75011 Paris
+              <Info icon={MapPin} label="" />
               <Info icon={Phone} label="+33 6 12 34 56 78" />
               <Info icon={MessageCircle} label="WhatsApp — réponse rapide" />
               <Info icon={Instagram} label="@maisonbelle.paris" />
