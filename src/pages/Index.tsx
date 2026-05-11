@@ -2,11 +2,22 @@ import { Button } from "@/components/ui/button";
 import { BookingDialog } from "@/components/BookingDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight,
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff,
 } from "lucide-react";
+import { EyeClosed } from 'lucide-react';
+
+const App = () => {
+  return (
+    <EyeClosed />
+  );
+};
+
+
 import heroImg from "@/assets/hero.jpg";
 import nailsImg from "@/assets/nails.jpg";
 import browsImg from "@/assets/brows.jpg";
+import cilsImg from "@/assets/cils.jpg";
+import ponImg from "@/assets/pon.jpg";
 import artistImg from "@/assets/artist.jpg";
 
 const Index = () => {
@@ -83,6 +94,8 @@ const Index = () => {
           {[
             { img: nailsImg, icon: Sparkles, title: "Ongles", desc: "Pose gel, semi-permanent, nail art — pour des mains toujours impeccables." },
             { img: browsImg, icon: Eye, title: "Sourcils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
+            { img: cilsImg, icon: EyeClosed, title: "Cils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
+            { img: ponImg, icon: EyeClosed, title: "Press on nails", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
           ].map((c) => (
             <div key={c.title} className="group relative overflow-hidden rounded-3xl shadow-soft">
               <img src={c.img} alt={c.title} loading="lazy" width={1024} height={1024}
@@ -105,7 +118,7 @@ const Index = () => {
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Nos prestations</span>
             <h2 className="font-display text-4xl md:text-5xl mt-3">Une carte sur mesure</h2>
           </div>
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             <ServiceCard
               icon={Sparkles}
               title="Ongles"
@@ -126,6 +139,17 @@ const Index = () => {
                 ["Brow lift (rehaussement)", "45min", "45€"],
                 ["Teinture sourcils", "20min", "20€"],
                 ["Microblading", "2h", "350€"],
+              ]}
+            />
+            <ServiceCard
+              icon={EyeOff}
+              title="Cils"
+              items={[
+                ["Rehaussement de cils", "45min", "35€"],
+                ["Teinture cils", "20min", "20€"],
+                ["Extensions cil à cil", "1h30", "55€"],
+                ["Volume russe", "2h", "75€"],
+                ["Dépose", "30min", "15€"],
               ]}
             />
           </div>
@@ -175,9 +199,9 @@ const Index = () => {
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { n: "Camille L.", t: "Un travail d'orfèvre. Mes ongles n'ont jamais été aussi beaux et mes sourcils enfin parfaits !" },
+              { n: "Camille B.", t: "Un travail d'orfèvre. Mes ongles n'ont jamais été aussi beaux et mes sourcils enfin parfaits !" },
               { n: "Sarah B.", t: "Accueil au top, ambiance cocooning. Je ne vais plus nulle part ailleurs." },
-              { n: "Léa M.", t: "Le brow lift a transformé mon regard. Résultat naturel et bluffant." },
+              { n: "Kenza M.", t: "Le brow lift a transformé mon regard. Résultat naturel et bluffant mashallah." },
             ].map((r) => (
               <div key={r.n} className="bg-card rounded-2xl p-6 shadow-soft">
                 <div className="flex gap-1 mb-3">
@@ -232,20 +256,22 @@ const Index = () => {
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Contact</span>
             <h2 className="font-display text-4xl md:text-5xl mt-3 mb-8">Venez nous rendre visite</h2>
-            <div className="space-y-4">12 rue des Lilas, 75011 Paris
-              <Info icon={MapPin} label="" />
-              <Info icon={Phone} label="+33 6 12 34 56 78" />
-              <Info icon={MessageCircle} label="WhatsApp — réponse rapide" />
-              <Info icon={Instagram} label="@maisonbelle.paris" />
-              <Info icon={Clock} label="Mar–Sam · 9h–19h" />
+            <div className="space-y-4">
+              <Info icon={MapPin} label="Ighrem, Akbou, Bejaia" />
+              <Info icon={Phone} label="+213 791 59 28" />
+              <Info icon={MessageCircle} label="+213 791 59 28 80 (WhatsApp)" />
+              <Info icon={Instagram} label="@maisonbelle" />
+              <Info icon={Clock} label="Ouvert du samedi au jeudi" />
             </div>
           </div>
           <div className="rounded-3xl overflow-hidden shadow-soft min-h-[300px] bg-muted">
             <iframe
               title="Carte"
-              src="https://www.openstreetmap.org/export/embed.html?bbox=2.37%2C48.85%2C2.39%2C48.86&layer=mapnik"
+              src="https://www.google.com/maps?q=36.462339,4.5040525&output=embed"
               className="w-full h-full min-h-[300px] border-0"
               loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
         </div>
