@@ -1,17 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { BookingDialog } from "@/components/BookingDialog";
+import { ReviewDialog } from "@/components/ReviewDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
   MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff,
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
-
-const App = () => {
-  return (
-    <EyeClosed />
-  );
-};
-
+import { useEffect, useState } from "react";
+import { getReviews } from "@/integrations/api";
 
 import heroImg from "@/assets/hero.jpg";
 import nailsImg from "@/assets/nails.jpg";
@@ -21,6 +17,12 @@ import ponImg from "@/assets/pon.jpg";
 import artistImg from "@/assets/artist.jpg";
 
 const Index = () => {
+  const [reviews, setReviews] = useState<any[]>([]);
+
+  useEffect(() => {
+    getReviews().then(setReviews).catch(console.error);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* NAV */}
@@ -54,7 +56,7 @@ const Index = () => {
               <br />et votre <em className="text-gold not-italic">regard</em>.
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-md">
-              Prothésie ongulaire & brow artist. Une expérience douce, élégante et sur mesure.
+              Prothésie ongulaire, brow & lash artist. Une expérience douce, élégante et sur mesure.
             </p>
             <div className="flex flex-wrap gap-3">
               <BookingDialog
@@ -94,8 +96,8 @@ const Index = () => {
           {[
             { img: nailsImg, icon: Sparkles, title: "Ongles", desc: "Pose gel, semi-permanent, nail art — pour des mains toujours impeccables." },
             { img: browsImg, icon: Eye, title: "Sourcils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
-            { img: cilsImg, icon: EyeClosed, title: "Cils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
-            { img: ponImg, icon: EyeClosed, title: "Press on nails", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
+            { img: cilsImg, icon: EyeClosed, title: "Cils", desc: "Rehaussement de cils, extensions, teinture — pour un regard élégant et lumineux." },
+            { img: ponImg, icon: Sparkles, title: "Press on nails", desc: "Capsules sur mesure, réutilisables et prêtes à porter — la beauté des ongles en toute simplicité." },
           ].map((c) => (
             <div key={c.title} className="group relative overflow-hidden rounded-3xl shadow-soft">
               <img src={c.img} alt={c.title} loading="lazy" width={1024} height={1024}
@@ -123,7 +125,7 @@ const Index = () => {
               icon={Sparkles}
               title="Ongles"
               items={[
-                ["Pose gel", "1h45", "55€"],
+                ["Pose gel", "1h45", "60€"],
                 ["Remplissage", "1h30", "45€"],
                 ["Vernis semi-permanent", "1h", "35€"],
                 ["Nail art (par ongle)", "+15min", "+5€"],
@@ -142,7 +144,7 @@ const Index = () => {
               ]}
             />
             <ServiceCard
-              icon={EyeOff}
+              icon={EyeClosed}
               title="Cils"
               items={[
                 ["Rehaussement de cils", "45min", "35€"],
@@ -197,7 +199,7 @@ const Index = () => {
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Avis clientes</span>
             <h2 className="font-display text-4xl md:text-5xl mt-3">Elles en parlent mieux que nous</h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
             {[
               { n: "Camille B.", t: "Un travail d'orfèvre. Mes ongles n'ont jamais été aussi beaux et mes sourcils enfin parfaits !" },
               { n: "Sarah B.", t: "Accueil au top, ambiance cocooning. Je ne vais plus nulle part ailleurs." },
@@ -211,6 +213,35 @@ const Index = () => {
                 <div className="font-medium">{r.n}</div>
               </div>
             ))}
+          </div>
+
+          {reviews.length > 0 && (
+            <div className="mb-12">
+              <h3 className="font-display text-2xl mb-6 text-center">Avis récents</h3>
+              <div className="grid md:grid-cols-3 gap-6">
+                {reviews.map((review) => (
+                  <div key={review.id} className="bg-card rounded-2xl p-6 shadow-soft">
+                    <div className="flex gap-1 mb-3">
+                      {[...Array(review.rating)].map((_, i) => (
+                        <Star key={i} className="h-4 w-4 fill-gold text-gold" />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4 italic">« {review.review_text} »</p>
+                    <div className="font-medium">{review.client_name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="max-w-md mx-auto text-center">
+            <ReviewDialog
+              trigger={
+                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full">
+                  Laissez votre avis
+                </Button>
+              }
+            />
           </div>
         </div>
       </section>

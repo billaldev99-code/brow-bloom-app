@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, Eye, Check, Loader2 } from "lucide-react";
+import { Sparkles, Eye, Check, Loader2, EyeClosed } from "lucide-react";
 import { createAppointment } from "@/integrations/api";
 import { z } from "zod";
 
@@ -12,7 +12,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const services = {
   ongles: [
-    { name: "Pose gel", duration: "1h45", price: "55€" },
+    { name: "Pose gel", duration: "1h45", price: "60€" },
     { name: "Remplissage", duration: "1h30", price: "45€" },
     { name: "Vernis semi-permanent", duration: "1h", price: "35€" },
     { name: "Nail art (par ongle)", duration: "+15min", price: "+5€" },
@@ -24,6 +24,13 @@ const services = {
     { name: "Brow lift (rehaussement)", duration: "45min", price: "45€" },
     { name: "Teinture sourcils", duration: "20min", price: "20€" },
     { name: "Microblading", duration: "2h", price: "350€" },
+  ],
+  cils: [
+    { name: "Rehaussement de cils", duration: "45min", price: "35€" },
+    { name: "Teinture cils", duration: "20min", price: "20€" },
+    { name: "Extensions cil à cil", duration: "1h30", price: "55€" },
+    { name: "Volume russe", duration: "2h", price: "75€" },
+    { name: "Dépose", duration: "30min", price: "15€" },
   ],
 };
 
@@ -40,7 +47,7 @@ interface Props { trigger: React.ReactNode; }
 export const BookingDialog = ({ trigger }: Props) => {
   const [step, setStep] = useState(1);
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<"ongles" | "sourcils" | null>(null);
+  const [category, setCategory] = useState<"ongles" | "sourcils" | "cils" | null>(null);
   const [service, setService] = useState<string | null>(null);
   const [date, setDate] = useState<string>("");
   const [slot, setSlot] = useState<string | null>(null);
@@ -115,7 +122,7 @@ export const BookingDialog = ({ trigger }: Props) => {
         {step === 1 && (
           <div className="space-y-3 pt-2">
             <p className="text-sm text-muted-foreground">Choisissez votre catégorie</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button onClick={() => { setCategory("ongles"); setStep(2); }}
                 className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
                 <Sparkles className="mx-auto mb-2 text-gold" />
@@ -125,6 +132,11 @@ export const BookingDialog = ({ trigger }: Props) => {
                 className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
                 <Eye className="mx-auto mb-2 text-gold" />
                 <div className="font-display text-lg">Sourcils</div>
+              </button>
+              <button onClick={() => { setCategory("cils"); setStep(2); }}
+                className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
+                <EyeClosed className="mx-auto mb-2 text-gold" />
+                <div className="font-display text-lg">Cils</div>
               </button>
             </div>
           </div>

@@ -3,7 +3,16 @@
     "allow": [
       "Bash(git rm *)",
       "Bash(git commit *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(npm start *)",
+      "Bash(taskkill *)",
+      "Bash(curl *)",
+      "Bash(node create_reviews_table.js)",
+      "Bash(node *)",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3001)",
+      "Bash(findstr :8080)"
     ]
   }
 }

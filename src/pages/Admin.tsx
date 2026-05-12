@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X } from "lucide-react";
-import { getAppointments, updateAppointmentStatus, deleteAppointment } from "@/integrations/api";
+import { Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X, Star } from "lucide-react";
+import { getAppointments, updateAppointmentStatus, deleteAppointment, getReviewsAll, updateReviewStatus, deleteReview } from "@/integrations/api";
 
 interface Appointment {
   id: number;
@@ -20,15 +20,27 @@ interface Appointment {
   created_at: string;
 }
 
+interface Review {
+  id: string;
+  client_name: string;
+  client_email: string | null;
+  rating: number;
+  review_text: string;
+  approved: boolean;
+  created_at: string;
+}
+
 const PRICES: Record<string, number> = {
-  "Pose gel": 55, "Remplissage": 45, "Vernis semi-permanent": 35, "Nail art (par ongle)": 5, "Dépose": 15,
+  "Pose gel": 60, "Remplissage": 45, "Vernis semi-permanent": 35, "Nail art (par ongle)": 5, "Dépose": 15,
   "Épilation sourcils": 15, "Restructuration": 25, "Brow lift (rehaussement)": 45, "Teinture sourcils": 20, "Microblading": 350,
+  "Rehaussement de cils": 35, "Teinture cils": 20, "Extensions cil à cil": 55, "Volume russe": 75,
 };
 
 const Admin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     init();
@@ -46,8 +58,12 @@ const Admin = () => {
   const load = async (token: string) => {
     setLoading(true);
     try {
-      const data = await getAppointments(token);
-      setAppointments(data);
+      const [appointmentsData, reviewsData] = await Promise.all([
+        getAppointments(token),
+        getReviewsAll(token),
+      ]);
+      setAppointments(appointmentsData);
+      setReviews(reviewsData);
     } catch (err) {
       toast.error("Erreur de chargement");
       localStorage.removeItem("token");
@@ -76,6 +92,43 @@ const Admin = () => {
     try {
       await deleteAppointment(id, token);
       toast.success("Supprimé");
+      await load(token);
+    } catch (err) {
+      toast.error("Erreur");
+    }
+  };
+
+  const approveReview = async (id: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await updateReviewStatus(id, true, token);
+      toast.success("Avis approuvé");
+      await load(token);
+    } catch (err) {
+      toast.error("Erreur");
+    }
+  };
+
+  const rejectReview = async (id: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await updateReviewStatus(id, false, token);
+      toast.success("Avis rejeté");
+      await load(token);
+    } catch (err) {
+      toast.error("Erreur");
+    }
+  };
+
+  const removeReview = async (id: string) => {
+    if (!confirm("Supprimer cet avis ?")) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await deleteReview(id, token);
+      toast.success("Avis supprimé");
       await load(token);
     } catch (err) {
       toast.error("Erreur");
@@ -154,6 +207,44 @@ const Admin = () => {
             ))}
           </div>
         </Card>
+
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <h2 className="font-display text-xl">Avis clients ({reviews.length})</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {reviews.length === 0 && (
+              <div className="p-8 text-center text-muted-foreground text-sm">Aucun avis pour l'instant.</div>
+            )}
+            {reviews.map(r => (
+              <div key={r.id} className="p-4 flex flex-wrap items-center gap-4 hover:bg-secondary/30">
+                <div className="flex gap-1">
+                  {[...Array(r.rating)].map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-gold text-gold" />
+                  ))}
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <div className="font-medium">{r.client_name}</div>
+                  <div className="text-sm text-muted-foreground">{r.review_text}</div>
+                  {r.client_email && <div className="text-xs text-muted-foreground">{r.client_email}</div>}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                </div>
+                <ReviewStatusBadge approved={r.approved} />
+                <div className="flex gap-1">
+                  {!r.approved && (
+                    <Button size="sm" variant="ghost" onClick={() => approveReview(r.id)}><Check className="h-4 w-4 text-green-600" /></Button>
+                  )}
+                  {r.approved && (
+                    <Button size="sm" variant="ghost" onClick={() => rejectReview(r.id)}><X className="h-4 w-4" /></Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => removeReview(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       </main>
     </div>
   );
@@ -181,6 +272,14 @@ const StatusBadge = ({ status }: { status: string }) => {
   };
   const label: Record<string, string> = { pending: "En attente", confirmed: "Confirmé", cancelled: "Annulé" };
   return <span className={`text-xs px-2 py-1 rounded-full ${map[status] || ""}`}>{label[status] || status}</span>;
+};
+
+const ReviewStatusBadge = ({ approved }: { approved: boolean }) => {
+  return (
+    <span className={`text-xs px-2 py-1 rounded-full ${approved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+      {approved ? "Approuvé" : "En attente"}
+    </span>
+  );
 };
 
 export default Admin;

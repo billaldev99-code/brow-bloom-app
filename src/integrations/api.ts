@@ -56,3 +56,84 @@ export async function deleteAppointment(id: number, token: string) {
   if (!res.ok) throw new Error('Failed to delete appointment');
   return res.json();
 }
+
+export async function submitReview(data: {
+  client_name: string;
+  client_email?: string;
+  rating: number;
+  review_text: string;
+}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes timeout
+
+  try {
+    const res = await fetch(`${API_URL}/api/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Submit review error:', errorText);
+      throw new Error(errorText || 'Failed to submit review');
+    }
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Délai d\'attente dépassé. Veuillez réessayer.');
+    }
+    throw error;
+  }
+}
+
+export async function getReviews() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes timeout
+
+  try {
+    const res = await fetch(`${API_URL}/api/reviews`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) throw new Error('Failed to fetch reviews');
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Délai d\'attente dépassé. Veuillez réessayer.');
+    }
+    throw error;
+  }
+}
+
+export async function getReviewsAll(token: string) {
+  const res = await fetch(`${API_URL}/api/reviews/all`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch all reviews');
+  return res.json();
+}
+
+export async function updateReviewStatus(id: string, approved: boolean, token: string) {
+  const res = await fetch(`${API_URL}/api/reviews/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ approved }),
+  });
+  if (!res.ok) throw new Error('Failed to update review status');
+  return res.json();
+}
+
+export async function deleteReview(id: string, token: string) {
+  const res = await fetch(`${API_URL}/api/reviews/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to delete review');
+  return res.json();
+}
