@@ -30,7 +30,7 @@ const Index = () => {
       <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-background/70 border-b border-border/50">
         <nav className="container flex items-center justify-between h-16">
           <a href="#" className="font-display text-xl tracking-wide">
-            Maison <span className="text-gold">Belle</span>
+            Onglerie By <span className="text-gold">Kati</span>
           </a>
           <div className="hidden md:flex items-center gap-8 text-sm">
             <a href="#services" className="hover:text-gold transition">Prestations</a>
