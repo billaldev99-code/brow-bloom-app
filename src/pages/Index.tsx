@@ -354,7 +354,7 @@ const Index = () => {
       {/* FOOTER */}
       <footer className="border-t border-border py-8">
         <div className="container flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-          <div className="font-display text-lg text-foreground">Maison <span className="text-gold">Belle</span></div>
+          <div className="font-display text-lg text-foreground">Onglerie By <span className="text-gold">Kati</span></div>
           <div>© {new Date().getFullYear()} — Tous droits réservés.</div>
         </div>
       </footer>
