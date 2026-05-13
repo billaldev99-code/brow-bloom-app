@@ -205,7 +205,22 @@ export const BookingDialog = ({ trigger }: Props) => {
             </div>
             <div>
               <Label htmlFor="phone">Téléphone</Label>
-              <Input id="phone" name="phone" type="tel" required maxLength={20} className="mt-1" />
+              <Input 
+                id="phone" 
+                name="phone" 
+                type="tel" 
+                required 
+                maxLength={10} 
+                className="mt-1" 
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, ""); // Keep only digits
+                  if (val.length <= 10) {
+                    e.target.value = val;
+                  } else {
+                    e.target.value = val.slice(0, 10);
+                  }
+                }}
+              />
             </div>
             <div>
               <Label htmlFor="email">Email</Label>

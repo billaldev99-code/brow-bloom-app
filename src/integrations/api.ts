@@ -137,3 +137,31 @@ export async function deleteReview(id: string, token: string) {
   if (!res.ok) throw new Error('Failed to delete review');
   return res.json();
 }
+
+export async function createOrder(data: any) {
+  const res = await fetch(`${API_URL}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create order');
+  return res.json();
+}
+
+export async function getOrders(token: string) {
+  const res = await fetch(`${API_URL}/api/orders`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch orders');
+  return res.json();
+}
+
+export async function updateOrderStatus(id: number, status: string, token: string) {
+  const res = await fetch(`${API_URL}/api/orders/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error('Failed to update order status');
+  return res.json();
+}

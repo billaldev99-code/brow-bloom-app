@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { BookingDialog } from "@/components/BookingDialog";
 import { ReviewDialog } from "@/components/ReviewDialog";
+import { PressOnNailsOrder } from "@/components/PressOnNailsOrder";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff,
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag,
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
@@ -37,9 +38,14 @@ const Index = () => {
             <a href="#gallery" className="hover:text-gold transition">Galerie</a>
             <a href="#contact" className="hover:text-gold transition">Contact</a>
           </div>
-          <BookingDialog
-            trigger={<Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-5">Réserver</Button>}
-          />
+          <div className="flex items-center gap-3">
+            <PressOnNailsOrder
+              trigger={<Button size="sm" variant="outline" className="hidden sm:flex border-gold text-gold hover:bg-gold hover:text-white rounded-full px-5">Commander</Button>}
+            />
+            <BookingDialog
+              trigger={<Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-5">Réserver</Button>}
+            />
+          </div>
         </nav>
       </header>
 
@@ -66,9 +72,13 @@ const Index = () => {
                   </Button>
                 }
               />
-              <Button asChild size="lg" variant="outline" className="rounded-full px-8 border-primary/20">
-                <a href="#services">Voir les prestations</a>
-              </Button>
+              <PressOnNailsOrder
+                trigger={
+                  <Button size="lg" variant="outline" className="rounded-full px-8 border-gold text-gold hover:bg-gold hover:text-white shadow-soft transition-all duration-300">
+                    Faire une commande <ShoppingBag className="ml-2 h-4 w-4" />
+                  </Button>
+                }
+              />
             </div>
             <div className="flex items-center gap-6 mt-10 text-sm">
               <div className="flex items-center gap-1">
@@ -97,21 +107,33 @@ const Index = () => {
             { img: nailsImg, icon: Sparkles, title: "Ongles", desc: "Pose gel, semi-permanent, nail art — pour des mains toujours impeccables." },
             { img: browsImg, icon: Eye, title: "Sourcils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
             { img: cilsImg, icon: EyeClosed, title: "Cils", desc: "Rehaussement de cils, extensions, teinture — pour un regard élégant et lumineux." },
-            { img: ponImg, icon: Sparkles, title: "Press on nails", desc: "Capsules sur mesure, réutilisables et prêtes à porter — la beauté des ongles en toute simplicité." },
+            { img: ponImg, icon: Sparkles, title: "Press on nails", desc: "Capsules sur mesure, réutilisables et prêtes à porter — la beauté des ongles en toute simplicité.", isPON: true },
           ].map((c) => (
             <div key={c.title} className="group relative overflow-hidden rounded-3xl shadow-soft">
               <img src={c.img} alt={c.title} loading="lazy" width={1024} height={1024}
                 className="w-full aspect-[4/3] object-cover transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent" />
-              <div className="absolute bottom-0 inset-x-0 p-8 text-primary-foreground">
-                <c.icon className="h-6 w-6 text-gold mb-2" />
-                <h3 className="font-display text-3xl mb-2">{c.title}</h3>
-                <p className="text-sm opacity-90 max-w-sm">{c.desc}</p>
+              <div className="absolute bottom-0 inset-x-0 p-8 text-primary-foreground flex justify-between items-end">
+                <div>
+                  <c.icon className="h-6 w-6 text-gold mb-2" />
+                  <h3 className="font-display text-3xl mb-2">{c.title}</h3>
+                  <p className="text-sm opacity-90 max-w-sm">{c.desc}</p>
+                </div>
+                {c.isPON && (
+                  <PressOnNailsOrder
+                    trigger={
+                      <Button size="sm" className="bg-gold text-gold-foreground hover:bg-gold/90 rounded-full px-6 shadow-gold transition-transform hover:scale-105">
+                        Commander
+                      </Button>
+                    }
+                  />
+                )}
               </div>
             </div>
           ))}
         </div>
       </section>
+
 
       {/* SERVICES */}
       <section id="services" className="py-20 bg-secondary/40">
@@ -268,15 +290,24 @@ const Index = () => {
           <div className="rounded-[2.5rem] gradient-luxe p-12 md:p-20 text-center shadow-elegant">
             <h2 className="font-display text-4xl md:text-5xl mb-4">Prête à vous offrir ce moment ?</h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Réservez en ligne en moins d'une minute. Confirmation immédiate par email & SMS.
+              Réservez votre séance ou commandez vos Press On Nails sur mesure en quelques clics.
             </p>
-            <BookingDialog
-              trigger={
-                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-10 shadow-elegant">
-                  Réserver mon rendez-vous <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              }
-            />
+            <div className="flex flex-wrap justify-center gap-4">
+              <BookingDialog
+                trigger={
+                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-10 shadow-elegant">
+                    Réserver mon rendez-vous <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                }
+              />
+              <PressOnNailsOrder
+                trigger={
+                  <Button size="lg" variant="outline" className="border-gold text-gold hover:bg-gold hover:text-white rounded-full px-10 shadow-soft transition-all duration-300">
+                    Faire une commande <ShoppingBag className="ml-2 h-4 w-4" />
+                  </Button>
+                }
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -291,7 +322,19 @@ const Index = () => {
               <Info icon={MapPin} label="Ighrem, Akbou, Bejaia" />
               <Info icon={Phone} label="+213 791 59 28" />
               <Info icon={MessageCircle} label="+213 791 59 28 80 (WhatsApp)" />
-              <Info icon={Instagram} label="@maisonbelle" />
+              <a href="https://www.instagram.com/maisonbelle" target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors block">
+                <Info icon={Instagram} label="@maisonbelle" />
+              </a>
+              <a href="https://www.tiktok.com/@maisonbelle" target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors block">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-card shadow-soft flex items-center justify-center">
+                    <svg className="h-4 w-4 text-gold fill-current" viewBox="0 0 24 24">
+                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+                    </svg>
+                  </div>
+                  <span>@maisonbelle</span>
+                </div>
+              </a>
               <Info icon={Clock} label="Ouvert du samedi au jeudi" />
             </div>
           </div>
