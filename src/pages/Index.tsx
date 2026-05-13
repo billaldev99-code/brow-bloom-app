@@ -360,11 +360,18 @@ const Index = () => {
       </footer>
 
       {/* MOBILE STICKY CTA */}
-      <div className="md:hidden fixed bottom-4 inset-x-4 z-40">
+      <div className="md:hidden fixed bottom-4 inset-x-4 z-40 flex gap-2">
         <BookingDialog
           trigger={
-            <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full h-12 shadow-elegant">
-              <Sparkles className="mr-2 h-4 w-4" /> Réserver maintenant
+            <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full h-12 shadow-elegant">
+              <Sparkles className="mr-2 h-4 w-4" /> Réserver
+            </Button>
+          }
+        />
+        <PressOnNailsOrder
+          trigger={
+            <Button className="flex-1 bg-gold text-gold-foreground hover:bg-gold/90 rounded-full h-12 shadow-gold">
+              <ShoppingBag className="mr-2 h-4 w-4" /> Commander
             </Button>
           }
         />
