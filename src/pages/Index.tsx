@@ -30,7 +30,7 @@ const Index = () => {
       <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-background/70 border-b border-border/50">
         <nav className="container flex items-center justify-between h-16">
           <a href="#" className="font-display text-xl tracking-wide">
-            Onglerie By <span className="text-gold">Kati</span>
+            Maison <span className="text-gold">Belle</span>
           </a>
           <div className="hidden md:flex items-center gap-8 text-sm">
             <a href="#services" className="hover:text-gold transition">Prestations</a>
@@ -354,7 +354,7 @@ const Index = () => {
       {/* FOOTER */}
       <footer className="border-t border-border py-8">
         <div className="container flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-          <div className="font-display text-lg text-foreground">Onglerie By <span className="text-gold">Kati</span></div>
+          <div className="font-display text-lg text-foreground">Maison <span className="text-gold">Belle</span></div>
           <div>© {new Date().getFullYear()} — Tous droits réservés.</div>
         </div>
       </footer>
