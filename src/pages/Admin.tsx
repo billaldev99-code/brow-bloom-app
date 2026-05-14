@@ -33,6 +33,24 @@ import {
   deleteGalleryItem
 } from "@/integrations/api";
 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  AreaChart,
+  Area
+} from "recharts";
+
 interface Appointment {
   id: number;
   category: string;
@@ -328,6 +346,7 @@ const Admin = () => {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="bg-card border border-border p-1 rounded-xl h-auto flex flex-wrap justify-start gap-1">
             <TabsTrigger value="overview" className="rounded-lg py-2">Tableau de bord</TabsTrigger>
+            <TabsTrigger value="stats" className="rounded-lg py-2">Statistiques</TabsTrigger>
             <TabsTrigger value="prestations" className="rounded-lg py-2">Salon</TabsTrigger>
             <TabsTrigger value="pon" className="rounded-lg py-2">Press On Nails</TabsTrigger>
             <TabsTrigger value="gallery" className="rounded-lg py-2">Galerie</TabsTrigger>
@@ -336,6 +355,7 @@ const Admin = () => {
 
           <TabsContent value="overview" className="space-y-6 m-0">
             <div className="grid lg:grid-cols-2 gap-6">
+              {/* APPOINTMENTS */}
               <Card className="overflow-hidden">
                 <div className="p-4 border-b border-border flex justify-between items-center">
                   <h2 className="font-display text-xl flex items-center gap-2">
@@ -450,6 +470,10 @@ const Admin = () => {
             </div>
           </TabsContent>
 
+          <TabsContent value="stats" className="m-0">
+            <StatsDashboard appointments={appointments} orders={orders} prestations={prestations} />
+          </TabsContent>
+
           <TabsContent value="prestations" className="m-0">
             <PrestationManager data={prestations} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
           </TabsContent>
@@ -503,6 +527,10 @@ const Admin = () => {
                 ))}
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="stats" className="m-0">
+            <StatsDashboard appointments={appointments} orders={orders} prestations={prestations} />
           </TabsContent>
         </Tabs>
       </main>
@@ -936,6 +964,142 @@ const StatusBadge = ({ status }: { status: string }) => {
     cancelled: "Annulé" 
   };
   return <span className={`text-xs px-2 py-1 rounded-full ${map[status] || ""}`}>{label[status] || status}</span>;
+};
+
+// STATISTICS DASHBOARD COMPONENT
+const StatsDashboard = ({ appointments, orders, prestations }: { appointments: any[], orders: any[], prestations: any[] }) => {
+  // 1. Revenue trend (last 7 days)
+  const last7Days = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  }).reverse();
+
+  const chartData = last7Days.map(date => {
+    const dayAppointments = appointments.filter(a => a.appointment_date === date && a.status === 'confirmed');
+    const dayOrders = orders.filter(o => o.created_at.startsWith(date) && o.status === 'confirmed');
+    
+    const appRevenue = dayAppointments.reduce((sum, a) => {
+      const p = prestations.find(p => p.name === a.service);
+      const priceStr = p?.price || "0";
+      return sum + (parseInt(priceStr.replace(/[^0-9]/g, "")) || 0);
+    }, 0);
+    
+    const orderRevenue = dayOrders.reduce((sum, o) => sum + Number(o.total_price), 0);
+    
+    return {
+      date: new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      revenue: appRevenue + orderRevenue,
+      appointments: dayAppointments.length,
+      orders: dayOrders.length
+    };
+  });
+
+  // 2. Service Distribution
+  const serviceStats = appointments.reduce((acc, a) => {
+    acc[a.service] = (acc[a.service] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const pieData = Object.entries(serviceStats).map(([name, value]) => ({ name, value })).slice(0, 5);
+  const COLORS = ['#d4af37', '#25252e', '#9b87f5', '#7E69AB', '#FDE1D3'];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* REVENUE CHART */}
+        <Card className="p-6">
+          <h3 className="font-display text-lg mb-6">Évolution du CA (7 derniers jours)</h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#d4af37" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#d4af37" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#666'}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#666'}} unit="€" />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#d4af37" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* VOLUME CHART */}
+        <Card className="p-6">
+          <h3 className="font-display text-lg mb-6">Volume d'activité</h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#666'}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#666'}} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Legend iconType="circle" />
+                <Bar dataKey="appointments" name="Rendez-vous" fill="#25252e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="orders" name="Commandes PON" fill="#d4af37" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* DISTRIBUTION CHART */}
+        <Card className="p-6">
+          <h3 className="font-display text-lg mb-6">Top Prestations (Salon)</h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend verticalAlign="bottom" height={36}/>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* SUMMARY CARD */}
+        <Card className="p-8 bg-primary text-primary-foreground flex flex-col justify-center items-center text-center space-y-4">
+          <div className="h-16 w-16 rounded-full bg-white/10 flex items-center justify-center mb-2">
+            <Star className="h-8 w-8 text-gold" />
+          </div>
+          <h3 className="font-display text-2xl">Résumé Mensuel</h3>
+          <div className="grid grid-cols-2 gap-8 w-full max-w-xs mt-4">
+            <div>
+              <div className="text-3xl font-bold">{appointments.length}</div>
+              <div className="text-xs opacity-70 uppercase tracking-widest">Réservations</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold">{orders.length}</div>
+              <div className="text-xs opacity-70 uppercase tracking-widest">Ventes PON</div>
+            </div>
+          </div>
+          <p className="text-sm opacity-60 italic mt-4">
+            "Le succès est la somme de petits efforts répétés jour après jour."
+          </p>
+        </Card>
+      </div>
+    </div>
+  );
 };
 
 const ReviewStatusBadge = ({ approved }: { approved: boolean }) => {
