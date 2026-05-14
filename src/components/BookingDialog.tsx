@@ -5,34 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Sparkles, Eye, Check, Loader2, EyeClosed } from "lucide-react";
-import { createAppointment } from "@/integrations/api";
+import { createAppointment, getPrestations } from "@/integrations/api";
 import { z } from "zod";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-const services = {
-  ongles: [
-    { name: "Pose gel", duration: "1h45", price: "60€" },
-    { name: "Remplissage", duration: "1h30", price: "45€" },
-    { name: "Vernis semi-permanent", duration: "1h", price: "35€" },
-    { name: "Nail art (par ongle)", duration: "+15min", price: "+5€" },
-    { name: "Dépose", duration: "30min", price: "15€" },
-  ],
-  sourcils: [
-    { name: "Épilation sourcils", duration: "20min", price: "15€" },
-    { name: "Restructuration", duration: "30min", price: "25€" },
-    { name: "Brow lift (rehaussement)", duration: "45min", price: "45€" },
-    { name: "Teinture sourcils", duration: "20min", price: "20€" },
-    { name: "Microblading", duration: "2h", price: "350€" },
-  ],
-  cils: [
-    { name: "Rehaussement de cils", duration: "45min", price: "35€" },
-    { name: "Teinture cils", duration: "20min", price: "20€" },
-    { name: "Extensions cil à cil", duration: "1h30", price: "55€" },
-    { name: "Volume russe", duration: "2h", price: "75€" },
-    { name: "Dépose", duration: "30min", price: "15€" },
-  ],
-};
 
 const ALL_SLOTS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30"];
 
@@ -41,6 +17,14 @@ const formSchema = z.object({
   phone: z.string().trim().min(6, "Téléphone invalide").max(20),
   email: z.string().trim().email("Email invalide").max(120),
 });
+
+interface Prestation {
+  id: number;
+  category: string;
+  name: string;
+  duration: string;
+  price: string;
+}
 
 interface Props { trigger: React.ReactNode; }
 
@@ -54,6 +38,13 @@ export const BookingDialog = ({ trigger }: Props) => {
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [prestations, setPrestations] = useState<Prestation[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      getPrestations().then(setPrestations).catch(console.error);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!date) return;
@@ -111,6 +102,8 @@ export const BookingDialog = ({ trigger }: Props) => {
 
   const today = new Date().toISOString().split("T")[0];
 
+  const filteredServices = prestations.filter(p => p.category === category);
+
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setTimeout(reset, 400); }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -145,8 +138,9 @@ export const BookingDialog = ({ trigger }: Props) => {
         {step === 2 && category && (
           <div className="space-y-2 pt-2 max-h-[60vh] overflow-y-auto">
             <p className="text-sm text-muted-foreground">Sélectionnez votre prestation</p>
-            {services[category].map((s) => (
-              <button key={s.name} onClick={() => { setService(s.name); setStep(3); }}
+            {filteredServices.length === 0 && <div className="p-8 text-center text-muted-foreground">Chargement des prestations...</div>}
+            {filteredServices.map((s) => (
+              <button key={s.id} onClick={() => { setService(s.name); setStep(3); }}
                 className="w-full flex justify-between items-center rounded-xl border border-border p-4 hover:border-gold hover:bg-secondary transition text-left">
                 <div>
                   <div className="font-medium">{s.name}</div>

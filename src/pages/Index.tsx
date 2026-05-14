@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
-import { getReviews } from "@/integrations/api";
+import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
 
 import heroImg from "@/assets/hero.jpg";
 import nailsImg from "@/assets/nails.jpg";
@@ -17,11 +17,30 @@ import cilsImg from "@/assets/cils.jpg";
 import ponImg from "@/assets/pon.jpg";
 import artistImg from "@/assets/artist.jpg";
 
+interface Prestation {
+  id: number;
+  category: string;
+  name: string;
+  duration: string;
+  price: string;
+}
+
+interface GalleryItem {
+  id: number;
+  image_url: string;
+  title: string;
+  description: string;
+}
+
 const Index = () => {
   const [reviews, setReviews] = useState<any[]>([]);
+  const [prestations, setPrestations] = useState<Prestation[]>([]);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
 
   useEffect(() => {
     getReviews().then(setReviews).catch(console.error);
+    getPrestations().then(setPrestations).catch(console.error);
+    getGalleryItems().then(setGallery).catch(console.error);
   }, []);
 
   return (
@@ -143,39 +162,14 @@ const Index = () => {
             <h2 className="font-display text-4xl md:text-5xl mt-3">Une carte sur mesure</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            <ServiceCard
-              icon={Sparkles}
-              title="Ongles"
-              items={[
-                ["Pose gel", "1h45", "60€"],
-                ["Remplissage", "1h30", "45€"],
-                ["Vernis semi-permanent", "1h", "35€"],
-                ["Nail art (par ongle)", "+15min", "+5€"],
-                ["Dépose", "30min", "15€"],
-              ]}
-            />
-            <ServiceCard
-              icon={Eye}
-              title="Sourcils"
-              items={[
-                ["Épilation sourcils", "20min", "15€"],
-                ["Restructuration", "30min", "25€"],
-                ["Brow lift (rehaussement)", "45min", "45€"],
-                ["Teinture sourcils", "20min", "20€"],
-                ["Microblading", "2h", "350€"],
-              ]}
-            />
-            <ServiceCard
-              icon={EyeClosed}
-              title="Cils"
-              items={[
-                ["Rehaussement de cils", "45min", "35€"],
-                ["Teinture cils", "20min", "20€"],
-                ["Extensions cil à cil", "1h30", "55€"],
-                ["Volume russe", "2h", "75€"],
-                ["Dépose", "30min", "15€"],
-              ]}
-            />
+            {["ongles", "sourcils", "cils"].map(cat => (
+              <ServiceCard
+                key={cat}
+                icon={cat === "ongles" ? Sparkles : cat === "sourcils" ? Eye : EyeClosed}
+                title={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                items={prestations.filter(p => p.category === cat).map(p => [p.name, p.duration, p.price])}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -225,7 +219,7 @@ const Index = () => {
             {[
               { n: "Camille B.", t: "Un travail d'orfèvre. Mes ongles n'ont jamais été aussi beaux et mes sourcils enfin parfaits !" },
               { n: "Sarah B.", t: "Accueil au top, ambiance cocooning. Je ne vais plus nulle part ailleurs." },
-              { n: "Kenza M.", t: "Le brow lift a transformé mon regard. Résultat naturel et bluffant mashallah." },
+              { n: "Kenza M.", t: "Le brow lift a transformé mon regard. Résultat naturel et bluffant." },
             ].map((r) => (
               <div key={r.n} className="bg-card rounded-2xl p-6 shadow-soft">
                 <div className="flex gap-1 mb-3">
@@ -275,12 +269,29 @@ const Index = () => {
           <h2 className="font-display text-4xl md:text-5xl mt-3">Inspirations & réalisations</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[nailsImg, browsImg, heroImg, artistImg, browsImg, nailsImg, artistImg, heroImg].map((img, i) => (
-            <div key={i} className="overflow-hidden rounded-2xl group">
-              <img src={img} alt={`Réalisation ${i+1}`} loading="lazy"
-                className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110" />
-            </div>
-          ))}
+          {gallery.length === 0 ? (
+             [nailsImg, browsImg, heroImg, artistImg, browsImg, nailsImg, artistImg, heroImg].map((img, i) => (
+              <div key={i} className="overflow-hidden rounded-2xl group">
+                <img src={img} alt={`Réalisation ${i+1}`} loading="lazy"
+                  className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110" />
+              </div>
+            ))
+          ) : (
+            gallery.map((item) => (
+              <div key={item.id} className="overflow-hidden rounded-2xl group relative shadow-soft">
+                <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
+                  className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110" />
+                {item.title && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center">
+                    <div className="text-white">
+                      <div className="font-display text-lg">{item.title}</div>
+                      {item.description && <div className="text-xs opacity-80">{item.description}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </section>
 

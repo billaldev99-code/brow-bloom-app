@@ -3,8 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X, Star, ShoppingBag, Package } from "lucide-react";
+import { 
+  Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X, Star, 
+  ShoppingBag, Package, Plus, Edit2, Image as ImageIcon, LayoutGrid, List, AlertCircle, UploadCloud
+} from "lucide-react";
 import { 
   getAppointments, 
   updateAppointmentStatus, 
@@ -13,7 +19,18 @@ import {
   updateReviewStatus, 
   deleteReview,
   getOrders,
-  updateOrderStatus
+  updateOrderStatus,
+  getPrestations,
+  createPrestation,
+  updatePrestation,
+  deletePrestation,
+  getItemsPON,
+  createItemPON,
+  updateItemPON,
+  deleteItemPON,
+  getGalleryItems,
+  createGalleryItem,
+  deleteGalleryItem
 } from "@/integrations/api";
 
 interface Appointment {
@@ -55,50 +72,118 @@ interface Review {
   created_at: string;
 }
 
-const PRICES: Record<string, number> = {
-  "Pose gel": 60, "Remplissage": 45, "Vernis semi-permanent": 35, "Nail art (par ongle)": 5, "Dépose": 15,
-  "Épilation sourcils": 15, "Restructuration": 25, "Brow lift (rehaussement)": 45, "Teinture sourcils": 20, "Microblading": 350,
-  "Rehaussement de cils": 35, "Teinture cils": 20, "Extensions cil à cil": 55, "Volume russe": 75,
+interface Prestation {
+  id: number;
+  category: string;
+  name: string;
+  duration: string;
+  price: string;
+}
+
+interface ItemPON {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  image_url: string;
+}
+
+interface GalleryItem {
+  id: number;
+  image_url: string;
+  title: string;
+  description: string;
+}
+
+// Helper for image compression
+const compressImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to JPEG with 70% quality
+    };
+  });
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
 };
 
 const Admin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [prestations, setPrestations] = useState<Prestation[]>([]);
+  const [itemsPON, setItemsPON] = useState<ItemPON[]>([]);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    init();
-  }, []);
-
-  const init = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/auth");
       return;
     }
-    await load(token);
-  };
+    loadAll(token);
+  }, []);
 
-  const load = async (token: string) => {
+  const loadAll = async (token: string) => {
     setLoading(true);
-    try {
-      const [appointmentsData, reviewsData, ordersData] = await Promise.all([
-        getAppointments(token),
-        getReviewsAll(token),
-        getOrders(token),
-      ]);
-      setAppointments(appointmentsData);
-      setReviews(reviewsData);
-      setOrders(ordersData);
-    } catch (err) {
-      toast.error("Erreur de chargement");
-      localStorage.removeItem("token");
-      navigate("/auth");
-    } finally {
-      setLoading(false);
-    }
+    setErrors({});
+    
+    const tasks = [
+      { name: 'appointments', fn: () => getAppointments(token), setter: setAppointments },
+      { name: 'reviews', fn: () => getReviewsAll(token), setter: setReviews },
+      { name: 'orders', fn: () => getOrders(token), setter: setOrders },
+      { name: 'prestations', fn: () => getPrestations(), setter: setPrestations },
+      { name: 'gallery', fn: () => getGalleryItems(), setter: setGallery },
+      { name: 'pon', fn: () => getItemsPON(), setter: setItemsPON },
+    ];
+
+    await Promise.all(tasks.map(async (task) => {
+      try {
+        const data = await task.fn();
+        task.setter(data);
+      } catch (err) {
+        console.error(`Failed to load ${task.name}:`, err);
+        setErrors(prev => ({ ...prev, [task.name]: true }));
+        if (['appointments', 'orders'].includes(task.name)) {
+          toast.error(`Erreur de chargement des ${task.name}`);
+        }
+      }
+    }));
+
+    setLoading(false);
   };
 
   const updateStatus = async (id: number, status: string) => {
@@ -107,7 +192,8 @@ const Admin = () => {
     try {
       await updateAppointmentStatus(id, status, token);
       toast.success("Mis à jour");
-      await load(token);
+      const data = await getAppointments(token);
+      setAppointments(data);
     } catch (err) {
       toast.error("Erreur");
     }
@@ -119,7 +205,8 @@ const Admin = () => {
     try {
       await updateOrderStatus(id, status, token);
       toast.success("Commande mise à jour");
-      await load(token);
+      const data = await getOrders(token);
+      setOrders(data);
     } catch (err) {
       toast.error("Erreur lors de la mise à jour de la commande");
     }
@@ -132,7 +219,8 @@ const Admin = () => {
     try {
       await deleteAppointment(id, token);
       toast.success("Supprimé");
-      await load(token);
+      const data = await getAppointments(token);
+      setAppointments(data);
     } catch (err) {
       toast.error("Erreur");
     }
@@ -144,7 +232,8 @@ const Admin = () => {
     try {
       await updateReviewStatus(id, true, token);
       toast.success("Avis approuvé");
-      await load(token);
+      const data = await getReviewsAll(token);
+      setReviews(data);
     } catch (err) {
       toast.error("Erreur");
     }
@@ -156,7 +245,8 @@ const Admin = () => {
     try {
       await updateReviewStatus(id, false, token);
       toast.success("Avis rejeté");
-      await load(token);
+      const data = await getReviewsAll(token);
+      setReviews(data);
     } catch (err) {
       toast.error("Erreur");
     }
@@ -169,7 +259,8 @@ const Admin = () => {
     try {
       await deleteReview(id, token);
       toast.success("Avis supprimé");
-      await load(token);
+      const data = await getReviewsAll(token);
+      setReviews(data);
     } catch (err) {
       toast.error("Erreur");
     }
@@ -182,12 +273,24 @@ const Admin = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-gold h-8 w-8" /></div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="animate-spin text-gold h-12 w-12" />
+        <p className="text-muted-foreground font-display animate-pulse">Chargement de votre espace Maison Belle...</p>
+      </div>
+    );
   }
 
   const confirmed = appointments.filter(a => a.status === "confirmed");
   const confirmedOrders = orders.filter(o => o.status === "confirmed");
-  const revenueAppointments = confirmed.reduce((s, a) => s + (PRICES[a.service] || 0), 0);
+  
+  const revenueAppointments = confirmed.reduce((s, a) => {
+    const p = prestations.find(p => p.name === a.service);
+    const priceStr = p?.price || "0";
+    const price = parseInt(priceStr.replace(/[^0-9]/g, "")) || 0;
+    return s + price;
+  }, 0);
+  
   const revenueOrders = confirmedOrders.reduce((s, o) => s + Number(o.total_price), 0);
   const totalRevenue = revenueAppointments + revenueOrders;
 
@@ -215,160 +318,592 @@ const Admin = () => {
           <Stat icon={Check} label="Top prestation" value={topService?.[0] || "—"} small />
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* APPOINTMENTS */}
-          <Card className="overflow-hidden">
-            <div className="p-4 border-b border-border flex justify-between items-center">
-              <h2 className="font-display text-xl flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-gold" /> Rendez-vous ({appointments.length})
-              </h2>
-            </div>
-            <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
-              {appointments.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground text-sm">Aucun rendez-vous pour l'instant.</div>
-              )}
-              {appointments.map(a => (
-                <div key={a.id} className="p-4 hover:bg-secondary/30 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="text-center bg-secondary/50 rounded-lg p-2 min-w-[60px]">
-                        <div className="text-xs font-bold uppercase">{new Date(a.appointment_date).toLocaleDateString("fr-FR", { month: "short" })}</div>
-                        <div className="text-xl font-display leading-tight">{new Date(a.appointment_date).getDate()}</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">{a.client_name}</div>
-                        <div className="text-xs text-muted-foreground">{a.appointment_time} · {a.client_phone}</div>
-                      </div>
-                    </div>
-                    <StatusBadge status={a.status} />
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider mb-1">{a.category}</Badge>
-                      <div className="text-sm">{a.service}</div>
-                    </div>
-                    <div className="flex gap-1">
-                      {a.status !== "confirmed" && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatus(a.id, "confirmed")}><Check className="h-4 w-4 text-green-600" /></Button>
-                      )}
-                      {a.status !== "cancelled" && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatus(a.id, "cancelled")}><X className="h-4 w-4 text-muted-foreground" /></Button>
-                      )}
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* ORDERS */}
-          <Card className="overflow-hidden border-gold/20">
-            <div className="p-4 border-b border-border bg-gold/5 flex justify-between items-center">
-              <h2 className="font-display text-xl flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-gold" /> Commandes PON ({orders.length})
-              </h2>
-            </div>
-            <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
-              {orders.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground text-sm">Aucune commande pour l'instant.</div>
-              )}
-              {orders.map(o => (
-                <div key={o.id} className="p-4 hover:bg-gold/5 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                        <Package className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="font-medium">{o.client_name} <span className="text-[10px] text-muted-foreground">#PON-{o.id}</span></div>
-                        <div className="text-xs text-muted-foreground">{o.client_phone} · {o.wilaya}</div>
-                      </div>
-                    </div>
-                    <StatusBadge status={o.status} />
-                  </div>
-                  <div className="bg-secondary/30 rounded-lg p-3 my-2 text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Type :</span>
-                      <span className="capitalize">{o.type === 'hands' ? 'Mains' : 'Pieds'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Modèles :</span>
-                      <span className="text-xs text-right truncate max-w-[200px]">{o.selected_prestations.join(', ')}</span>
-                    </div>
-                    <div className="flex justify-between font-bold border-t border-border mt-1 pt-1">
-                      <span>Total :</span>
-                      <span className="text-gold">{o.total_price}€</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <div className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">
-                      {o.address}, {o.commune}
-                    </div>
-                    <div className="flex gap-1">
-                      {o.status !== "confirmed" && (
-                        <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => updateStatusOrder(o.id, "confirmed")}>
-                          Confirmer
-                        </Button>
-                      )}
-                      {o.status !== "shipped" && o.status === "confirmed" && (
-                        <Button size="sm" variant="outline" className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => updateStatusOrder(o.id, "shipped")}>
-                          Expédier
-                        </Button>
-                      )}
-                      {o.status !== "cancelled" && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatusOrder(o.id, "cancelled")}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b border-border">
-            <h2 className="font-display text-xl flex items-center gap-2">
-              <Star className="h-5 w-5 text-gold" /> Avis clients ({reviews.length})
-            </h2>
+        {Object.keys(errors).length > 0 && (
+          <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl flex items-center gap-3 text-destructive text-sm">
+            <AlertCircle className="h-5 w-5" />
+            <p>Certaines sections n'ont pas pu être chargées (peut-être des images trop lourdes). Le reste fonctionne normalement.</p>
           </div>
-          <div className="divide-y divide-border">
-            {reviews.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground text-sm">Aucun avis pour l'instant.</div>
-            )}
-            {reviews.map(r => (
-              <div key={r.id} className="p-4 flex flex-wrap items-center gap-4 hover:bg-secondary/30">
-                <div className="flex gap-1">
-                  {[...Array(r.rating)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-gold text-gold" />
+        )}
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="bg-card border border-border p-1 rounded-xl h-auto flex flex-wrap justify-start gap-1">
+            <TabsTrigger value="overview" className="rounded-lg py-2">Tableau de bord</TabsTrigger>
+            <TabsTrigger value="prestations" className="rounded-lg py-2">Salon</TabsTrigger>
+            <TabsTrigger value="pon" className="rounded-lg py-2">Press On Nails</TabsTrigger>
+            <TabsTrigger value="gallery" className="rounded-lg py-2">Galerie</TabsTrigger>
+            <TabsTrigger value="reviews" className="rounded-lg py-2">Avis Clients</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6 m-0">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="overflow-hidden">
+                <div className="p-4 border-b border-border flex justify-between items-center">
+                  <h2 className="font-display text-xl flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-gold" /> Rendez-vous ({appointments.length})
+                  </h2>
+                </div>
+                <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+                  {appointments.length === 0 && !errors.appointments && (
+                    <div className="p-8 text-center text-muted-foreground text-sm">Aucun rendez-vous pour l'instant.</div>
+                  )}
+                  {errors.appointments && <div className="p-8 text-center text-destructive text-sm">Erreur lors du chargement des rendez-vous.</div>}
+                  {appointments.map(a => (
+                    <div key={a.id} className="p-4 hover:bg-secondary/30 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="text-center bg-secondary/50 rounded-lg p-2 min-w-[60px]">
+                            <div className="text-xs font-bold uppercase">{new Date(a.appointment_date).toLocaleDateString("fr-FR", { month: "short" })}</div>
+                            <div className="text-xl font-display leading-tight">{new Date(a.appointment_date).getDate()}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium">{a.client_name}</div>
+                            <div className="text-xs text-muted-foreground">{a.appointment_time} · {a.client_phone}</div>
+                          </div>
+                        </div>
+                        <StatusBadge status={a.status} />
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <Badge variant="outline" className="text-[10px] uppercase tracking-wider mb-1">{a.category}</Badge>
+                          <div className="text-sm">{a.service}</div>
+                        </div>
+                        <div className="flex gap-1">
+                          {a.status !== "confirmed" && (
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatus(a.id, "confirmed")}><Check className="h-4 w-4 text-green-600" /></Button>
+                          )}
+                          {a.status !== "cancelled" && (
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatus(a.id, "cancelled")}><X className="h-4 w-4 text-muted-foreground" /></Button>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <div className="flex-1 min-w-[200px]">
-                  <div className="font-medium">{r.client_name}</div>
-                  <div className="text-sm text-muted-foreground italic">« {r.review_text} »</div>
-                  {r.client_email && <div className="text-xs text-muted-foreground mt-1">{r.client_email}</div>}
+              </Card>
+
+              <Card className="overflow-hidden border-gold/20">
+                <div className="p-4 border-b border-border bg-gold/5 flex justify-between items-center">
+                  <h2 className="font-display text-xl flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5 text-gold" /> Commandes PON ({orders.length})
+                  </h2>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(r.created_at).toLocaleDateString("fr-FR")}
-                </div>
-                <ReviewStatusBadge approved={r.approved} />
-                <div className="flex gap-1">
-                  {!r.approved && (
-                    <Button size="sm" variant="ghost" onClick={() => approveReview(r.id)}><Check className="h-4 w-4 text-green-600" /></Button>
+                <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+                  {orders.length === 0 && !errors.orders && (
+                    <div className="p-8 text-center text-muted-foreground text-sm">Aucune commande pour l'instant.</div>
                   )}
-                  {r.approved && (
-                    <Button size="sm" variant="ghost" onClick={() => rejectReview(r.id)}><X className="h-4 w-4" /></Button>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => removeReview(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  {errors.orders && <div className="p-8 text-center text-destructive text-sm">Erreur lors du chargement des commandes.</div>}
+                  {orders.map(o => (
+                    <div key={o.id} className="p-4 hover:bg-gold/5 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                            <Package className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{o.client_name} <span className="text-[10px] text-muted-foreground">#PON-{o.id}</span></div>
+                            <div className="text-xs text-muted-foreground">{o.client_phone} · {o.wilaya}</div>
+                          </div>
+                        </div>
+                        <StatusBadge status={o.status} />
+                      </div>
+                      <div className="bg-secondary/30 rounded-lg p-3 my-2 text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Type :</span>
+                          <span className="capitalize">{o.type === 'hands' ? 'Mains' : 'Pieds'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Modèles :</span>
+                          <span className="text-xs text-right truncate max-w-[200px]">{o.selected_prestations.join(', ')}</span>
+                        </div>
+                        <div className="flex justify-between font-bold border-t border-border mt-1 pt-1">
+                          <span>Total :</span>
+                          <span className="text-gold">{o.total_price}€</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">
+                          {o.address}, {o.commune}
+                        </div>
+                        <div className="flex gap-1">
+                          {o.status !== "confirmed" && (
+                            <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => updateStatusOrder(o.id, "confirmed")}>
+                              Confirmer
+                            </Button>
+                          )}
+                          {o.status !== "shipped" && o.status === "confirmed" && (
+                            <Button size="sm" variant="outline" className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => updateStatusOrder(o.id, "shipped")}>
+                              Expédier
+                            </Button>
+                          )}
+                          {o.status !== "cancelled" && (
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatusOrder(o.id, "cancelled")}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="prestations" className="m-0">
+            <PrestationManager data={prestations} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
+          </TabsContent>
+
+          <TabsContent value="pon" className="m-0">
+            <PONManager data={itemsPON} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
+          </TabsContent>
+
+          <TabsContent value="gallery" className="m-0">
+            <GalleryManager data={gallery} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
+          </TabsContent>
+
+          <TabsContent value="reviews" className="m-0">
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h2 className="font-display text-xl flex items-center gap-2">
+                  <Star className="h-5 w-5 text-gold" /> Avis clients ({reviews.length})
+                </h2>
               </div>
-            ))}
+              <div className="divide-y divide-border">
+                {reviews.length === 0 && !errors.reviews && (
+                  <div className="p-8 text-center text-muted-foreground text-sm">Aucun avis pour l'instant.</div>
+                )}
+                {errors.reviews && <div className="p-8 text-center text-destructive text-sm">Erreur lors du chargement des avis.</div>}
+                {reviews.map(r => (
+                  <div key={r.id} className="p-4 flex flex-wrap items-center gap-4 hover:bg-secondary/30">
+                    <div className="flex gap-1">
+                      {[...Array(r.rating)].map((_, i) => (
+                        <Star key={i} className="h-4 w-4 fill-gold text-gold" />
+                      ))}
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="font-medium">{r.client_name}</div>
+                      <div className="text-sm text-muted-foreground italic">« {r.review_text} »</div>
+                      {r.client_email && <div className="text-xs text-muted-foreground mt-1">{r.client_email}</div>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                    </div>
+                    <ReviewStatusBadge approved={r.approved} />
+                    <div className="flex gap-1">
+                      {!r.approved && (
+                        <Button size="sm" variant="ghost" onClick={() => approveReview(r.id)}><Check className="h-4 w-4 text-green-600" /></Button>
+                      )}
+                      {r.approved && (
+                        <Button size="sm" variant="ghost" onClick={() => rejectReview(r.id)}><X className="h-4 w-4" /></Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => removeReview(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+};
+
+// PRESTATION MANAGER
+const PrestationManager = ({ data, onRefresh }: { data: Prestation[], onRefresh: () => void }) => {
+  const [editing, setEditing] = useState<Partial<Prestation> | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const save = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !editing?.name) return;
+    setLoading(true);
+    try {
+      if (editing.id) {
+        await updatePrestation(editing.id, editing, token);
+      } else {
+        await createPrestation(editing, token);
+      }
+      toast.success("Enregistré avec succès");
+      setEditing(null);
+      onRefresh();
+    } catch (err) {
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!confirm("Supprimer cette prestation ?")) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await deletePrestation(id, token);
+      toast.success("Supprimé");
+      onRefresh();
+    } catch (err) {
+      toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="font-display text-2xl text-gold">Gestion des Prestations Salon</h2>
+        <Button onClick={() => setEditing({ category: "ongles", name: "", duration: "", price: "" })} className="rounded-full bg-gold hover:bg-gold/90">
+          <Plus className="h-4 w-4 mr-2" /> Ajouter une prestation
+        </Button>
+      </div>
+
+      {editing && (
+        <Card className="p-6 border-gold/30 bg-gold/5 animate-in slide-in-from-top-4 duration-300">
+          <h3 className="font-display text-lg mb-4">{editing.id ? "Modifier la prestation" : "Nouvelle prestation"}</h3>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="space-y-2">
+              <Label>Catégorie</Label>
+              <select 
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editing.category}
+                onChange={e => setEditing({...editing, category: e.target.value})}
+              >
+                <option value="ongles">Ongles</option>
+                <option value="sourcils">Sourcils</option>
+                <option value="cils">Cils</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nom</Label>
+              <Input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} placeholder="Ex: Pose gel" />
+            </div>
+            <div className="space-y-2">
+              <Label>Durée</Label>
+              <Input value={editing.duration} onChange={e => setEditing({...editing, duration: e.target.value})} placeholder="Ex: 1h45" />
+            </div>
+            <div className="space-y-2">
+              <Label>Prix</Label>
+              <Input value={editing.price} onChange={e => setEditing({...editing, price: e.target.value})} placeholder="Ex: 60€" />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-6">
+            <Button onClick={save} disabled={loading} className="bg-primary text-white">
+              {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Enregistrer
+            </Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>Annuler</Button>
           </div>
         </Card>
-      </main>
+      )}
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {["ongles", "sourcils", "cils"].map(cat => (
+          <Card key={cat} className="overflow-hidden">
+            <div className="p-4 border-b border-border bg-secondary/50 font-bold uppercase text-xs tracking-widest flex items-center justify-between">
+              {cat}
+              <List className="h-3 w-3 text-gold" />
+            </div>
+            <div className="divide-y divide-border">
+              {data.filter(p => p.category === cat).map(p => (
+                <div key={p.id} className="p-4 flex justify-between items-center hover:bg-secondary/20 group transition-colors">
+                  <div>
+                    <div className="font-medium text-sm">{p.name}</div>
+                    <div className="text-xs text-muted-foreground">{p.duration} · {p.price}</div>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(p)}><Edit2 className="h-3 w-3" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => remove(p.id)}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// PON MANAGER
+const PONManager = ({ data, onRefresh }: { data: ItemPON[], onRefresh: () => void }) => {
+  const [editing, setEditing] = useState<Partial<ItemPON> | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const compressed = await compressImage(reader.result as string);
+      setEditing(prev => ({ ...prev, image_url: compressed }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const save = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !editing?.name) return;
+    setLoading(true);
+    try {
+      if (editing.id) {
+        await updateItemPON(editing.id, editing, token);
+      } else {
+        await createItemPON(editing, token);
+      }
+      toast.success("Modèle PON enregistré");
+      setEditing(null);
+      onRefresh();
+    } catch (err) {
+      toast.error("Erreur lors de l'enregistrement.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!confirm("Supprimer ce modèle ?")) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await deleteItemPON(id, token);
+      toast.success("Modèle supprimé");
+      onRefresh();
+    } catch (err) {
+      toast.error("Erreur");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="font-display text-2xl text-gold">Catalogue Press On Nails</h2>
+        <Button onClick={() => setEditing({ name: "", description: "", price: 0, image_url: "" })} className="rounded-full bg-gold hover:bg-gold/90">
+          <Plus className="h-4 w-4 mr-2" /> Ajouter un modèle
+        </Button>
+      </div>
+
+      {editing && (
+        <Card className="p-6 border-gold/30 bg-gold/5">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nom du modèle</Label>
+                <Input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} placeholder="Ex: French Classique" />
+              </div>
+              <div className="space-y-2">
+                <Label>Prix (€)</Label>
+                <Input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} placeholder="Ex: 35" />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} placeholder="Description courte..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Image (Upload)</Label>
+                <Input type="file" accept="image/*" onChange={handleFileUpload} className="mb-2" />
+                <p className="text-[10px] text-muted-foreground italic">Le site compresse automatiquement vos images pour qu'elles s'affichent partout.</p>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button onClick={save} disabled={loading} className="bg-primary text-white">
+                  {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                  Enregistrer
+                </Button>
+                <Button variant="ghost" onClick={() => setEditing(null)}>Annuler</Button>
+              </div>
+            </div>
+            <div className="space-y-2 text-center">
+              <Label>Aperçu carte</Label>
+              <div className="mx-auto w-48 aspect-square rounded-2xl overflow-hidden border-2 border-border shadow-soft relative bg-card flex items-center justify-center">
+                {editing.image_url ? (
+                   <img src={editing.image_url} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+                )}
+                <div className="absolute bottom-0 inset-x-0 p-2 bg-black/60 text-white text-[10px]">
+                  {editing.name || "Nom du modèle"} - {editing.price || 0}€
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {data.map(item => (
+          <div key={item.id} className="group bg-card rounded-2xl overflow-hidden border border-border shadow-soft hover:border-gold/50 transition-all">
+            <div className="aspect-square relative overflow-hidden bg-secondary">
+              <img src={item.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="" />
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-sm" onClick={() => setEditing(item)}><Edit2 className="h-3 w-3" /></Button>
+                <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full shadow-sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            <div className="p-3">
+              <div className="font-bold text-sm truncate">{item.name}</div>
+              <div className="text-gold text-xs font-bold">{item.price}€</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// GALLERY MANAGER
+const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: () => void }) => {
+  const [editing, setEditing] = useState<Partial<GalleryItem> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [uploadingBatch, setUploadingBatch] = useState(false);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const compressed = await compressImage(reader.result as string);
+      setEditing(prev => ({ ...prev, image_url: compressed }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBatchUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setUploadingBatch(true);
+    let successCount = 0;
+    
+    toast.info(`Préparation de ${files.length} photo(s)...`);
+
+    for (const file of files) {
+      try {
+        const base64 = await fileToBase64(file);
+        const compressed = await compressImage(base64);
+        await createGalleryItem({ image_url: compressed, title: "", description: "" }, token);
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} photo(s) ajoutée(s) à la galerie !`);
+      onRefresh();
+    } else {
+      toast.error("Échec de l'envoi des photos.");
+    }
+    
+    setUploadingBatch(false);
+    e.target.value = ""; 
+  };
+
+  const save = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !editing?.image_url) return;
+    setLoading(true);
+    try {
+      await createGalleryItem(editing, token);
+      toast.success("Photo ajoutée");
+      setEditing(null);
+      onRefresh();
+    } catch (err) {
+      toast.error("Erreur lors de l'ajout.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!confirm("Supprimer cette photo ?")) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await deleteGalleryItem(id, token);
+      toast.success("Photo supprimée");
+      onRefresh();
+    } catch (err) {
+      toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="font-display text-2xl text-gold">Gestion Galerie</h2>
+        <div className="flex gap-2">
+          <Button variant="outline" className="rounded-full border-gold text-gold hover:bg-gold hover:text-white relative overflow-hidden" disabled={uploadingBatch}>
+            {uploadingBatch ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <UploadCloud className="h-4 w-4 mr-2" />}
+            {uploadingBatch ? "Envoi..." : "Ajout multiple"}
+            <input type="file" multiple accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleBatchUpload} disabled={uploadingBatch} />
+          </Button>
+          <Button onClick={() => setEditing({ image_url: "", title: "", description: "" })} className="rounded-full bg-gold hover:bg-gold/90">
+            <Plus className="h-4 w-4 mr-2" /> Une photo
+          </Button>
+        </div>
+      </div>
+
+      {editing && (
+        <Card className="p-6 border-gold/30 bg-gold/5">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Image (Upload)</Label>
+                <Input type="file" accept="image/*" onChange={handleFileUpload} className="mb-2" />
+                <p className="text-[10px] text-muted-foreground italic">Le site compresse automatiquement vos images pour une fluidité totale.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Titre (Optionnel)</Label>
+                <Input value={editing.title} onChange={e => setEditing({...editing, title: e.target.value})} placeholder="Ex: Pose Gel French" />
+              </div>
+              <div className="space-y-2">
+                <Label>Description (Optionnelle)</Label>
+                <Input value={editing.description} onChange={e => setEditing({...editing, description: e.target.value})} placeholder="Ex: Avec décoration strass" />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button onClick={save} disabled={loading || !editing.image_url} className="bg-primary text-white">
+                  {loading && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                  Ajouter à la galerie
+                </Button>
+                <Button variant="ghost" onClick={() => setEditing(null)}>Annuler</Button>
+              </div>
+            </div>
+            <div className="space-y-2 text-center">
+              <Label>Aperçu</Label>
+              <div className="aspect-square rounded-2xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-card">
+                {editing.image_url ? (
+                  <img src={editing.image_url} className="w-full h-full object-cover" alt="Preview" />
+                ) : (
+                  <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {data.length === 0 && !loading && (
+          <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
+            La galerie est vide. Ajoutez vos premières réalisations !
+          </div>
+        )}
+        {data.map(item => (
+          <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden shadow-soft">
+            <img src={item.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title || ""} />
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center">
+              {item.title && <div className="text-white text-xs font-bold mb-1">{item.title}</div>}
+              <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => remove(item.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

@@ -20,22 +20,21 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { createOrder } from "@/integrations/api";
+import { createOrder, getItemsPON } from "@/integrations/api";
 import nailsImg from "@/assets/nails.jpg";
+import { useEffect } from "react";
 
-// Prestations data
-const prestations = [
-  { id: "simple-nude", name: "Simple Nude", price: 30, description: "Un look naturel et élégant", image: nailsImg },
-  { id: "french", name: "French Classique", price: 35, description: "L'intemporel chic", image: nailsImg },
-  { id: "chrome", name: "Effet Chrome", price: 40, description: "Reflets métallisés ultra-tendances", image: nailsImg },
-  { id: "luxe", name: "Nail Art Luxe", price: 50, description: "Designs complexes et artistiques", image: nailsImg },
-  { id: "strass", name: "Strass & Glamour", price: 45, description: "Pour briller en toutes occasions", image: nailsImg },
-  { id: "mariage", name: "Style Mariage", price: 55, description: "Sublimez votre grand jour", image: nailsImg },
-  { id: "coffin", name: "Style Coffin", price: 40, description: "Forme moderne et sophistiquée", image: nailsImg },
-  { id: "almond", name: "Style Almond", price: 40, description: "Féminité et douceur", image: nailsImg },
-  { id: "xxl", name: "Style Long XXL", price: 50, description: "Osez la longueur extrême", image: nailsImg },
-  { id: "custom", name: "Custom Design", price: 60, description: "Sur mesure selon vos envies", image: nailsImg },
-];
+interface ItemPON {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  image_url: string;
+}
+
+interface Props {
+  trigger: React.ReactNode;
+}
 
 const wilayas = [
   "Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira", 
@@ -47,16 +46,30 @@ const wilayas = [
   "In Guezzam", "Touggourt", "Djanet", "M'Ghair", "El Meniaa"
 ];
 
-interface Props {
-  trigger: React.ReactNode;
-}
-
 export const PressOnNailsOrder = ({ trigger }: Props) => {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"hands" | "feet" | null>(null);
-  const [selectedItems, setSelectedItems] = useState<{id: string, qty: number}[]>([]);
+  const [selectedItems, setSelectedItems] = useState<{id: number, qty: number}[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [prestations, setPrestations] = useState<ItemPON[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setFetching(true);
+      getItemsPON()
+        .then(data => {
+          console.log("Fetched PON items:", data);
+          setPrestations(data || []);
+        })
+        .catch(err => {
+          console.error("Failed to fetch PON items:", err);
+          toast.error("Impossible de charger les modèles.");
+        })
+        .finally(() => setFetching(false));
+    }
+  }, [open]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -83,7 +96,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
     });
   };
 
-  const handlePrestationToggle = (id: string) => {
+  const handlePrestationToggle = (id: number) => {
     setSelectedItems(prev => {
       const exists = prev.find(item => item.id === id);
       if (exists) {
@@ -94,7 +107,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
     });
   };
 
-  const updateItemQty = (id: string, delta: number) => {
+  const updateItemQty = (id: number, delta: number) => {
     setSelectedItems(prev => prev.map(item => {
       if (item.id === id) {
         return { ...item, qty: Math.max(1, item.qty + delta) };
@@ -117,7 +130,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
         type,
         selected_prestations: selectedItems.map(item => {
           const p = prestations.find(p => p.id === item.id);
-          return `${p?.name} (x${item.qty})`;
+          return `${p?.name || 'Inconnu'} (x${item.qty})`;
         }),
         quantity: selectedItems.reduce((acc, item) => acc + item.qty, 0),
         total_price: totalPrice,
@@ -217,33 +230,58 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                     {selectedItems.length} sélectionné(s)
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
-                  {prestations.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => handlePrestationToggle(p.id)}
-                      className={cn(
-                        "group relative rounded-2xl overflow-hidden border-2 transition-all duration-300 text-left",
-                        selectedItems.some(item => item.id === p.id) ? "border-gold" : "border-border hover:border-gold/30"
-                      )}
-                    >
-                      <div className="aspect-square relative overflow-hidden">
-                        <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                        {selectedItems.some(item => item.id === p.id) && (
-                          <div className="absolute inset-0 bg-gold/20 flex items-center justify-center">
-                            <div className="bg-gold text-white rounded-full p-2">
-                              <Check className="h-4 w-4" />
-                            </div>
-                          </div>
+
+                {fetching ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-gold" />
+                    <p className="text-sm text-muted-foreground">Chargement des modèles...</p>
+                  </div>
+                ) : prestations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-4 border-2 border-dashed rounded-3xl">
+                    <Package className="h-10 w-10 text-muted-foreground opacity-20" />
+                    <p className="text-sm text-muted-foreground text-center px-6">
+                      Aucun modèle n'est disponible pour le moment.<br/>Revenez plus tard ou contactez-nous.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => getItemsPON().then(setPrestations)}>
+                      Actualiser
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+                    {prestations.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => handlePrestationToggle(p.id)}
+                        className={cn(
+                          "group relative rounded-2xl overflow-hidden border-2 transition-all duration-300 text-left",
+                          selectedItems.some(item => item.id === p.id) ? "border-gold" : "border-border hover:border-gold/30"
                         )}
-                      </div>
-                      <div className="p-3 space-y-1">
-                        <div className="font-medium text-sm truncate">{p.name}</div>
-                        <div className="text-gold font-bold text-xs">{p.price}€</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      >
+                        <div className="aspect-square relative overflow-hidden bg-secondary">
+                          {p?.image_url ? (
+                            <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="h-8 w-8 text-muted-foreground opacity-20" />
+                            </div>
+                          )}
+                          {selectedItems.some(item => item.id === p.id) && (
+                            <div className="absolute inset-0 bg-gold/20 flex items-center justify-center">
+                              <div className="bg-gold text-white rounded-full p-2">
+                                <Check className="h-4 w-4" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3 space-y-1">
+                          <div className="font-medium text-sm truncate">{p.name}</div>
+                          <div className="text-gold font-bold text-xs">{p.price}€</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <Button variant="outline" onClick={prevStep} className="flex-1 rounded-full">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Retour
@@ -269,14 +307,14 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
 
                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                   {selectedItems.map((item) => {
-                    const p = prestations.find(p => p.id === item.id);
+                    const p = prestations.find(p => p.id === Number(item.id));
                     return (
                       <div key={item.id} className="flex items-center justify-between p-4 rounded-2xl border border-border bg-card shadow-sm">
                         <div className="flex items-center gap-3">
-                          <img src={p?.image} className="w-12 h-12 rounded-lg object-cover" alt="" />
+                          {p?.image_url && <img src={p.image_url} className="w-12 h-12 rounded-lg object-cover" alt="" />}
                           <div>
-                            <div className="font-medium text-sm">{p?.name}</div>
-                            <div className="text-gold text-xs font-bold">{p?.price}€ / unité</div>
+                            <div className="font-medium text-sm">{p?.name || 'Inconnu'}</div>
+                            <div className="text-gold text-xs font-bold">{p?.price || 0}€ / unité</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
