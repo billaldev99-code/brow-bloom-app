@@ -4,10 +4,11 @@ import { ReviewDialog } from "@/components/ReviewDialog";
 import { PressOnNailsOrder } from "@/components/PressOnNailsOrder";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag,
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
@@ -35,14 +36,32 @@ interface GalleryItem {
 }
 
 const Index = () => {
+  const navigate = useNavigate();
   const [reviews, setReviews] = useState<any[]>([]);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("userId");
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    navigate("/");
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      const token = localStorage.getItem("token");
+      const role = localStorage.getItem("role");
+      setIsLoggedIn(!!token);
+      setIsAdmin(role === "admin");
+
       try {
         const [reviewsData, prestationsData, galleryData] = await Promise.all([
           getReviews().catch(() => []),
@@ -75,7 +94,21 @@ const Index = () => {
             <a href="#gallery" className="hover:text-gold transition">Galerie</a>
             <a href="#contact" className="hover:text-gold transition">Contact</a>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isLoggedIn && (
+              <>
+                {isAdmin && (
+                  <Button size="sm" variant="ghost" onClick={() => navigate("/admin")} className="text-gold hover:text-gold hover:bg-gold/10 px-2 sm:px-4">
+                    <LayoutDashboard className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Admin</span>
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={logout} className="text-muted-foreground px-2 sm:px-4">
+                  <LogOut className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Déconnexion</span>
+                </Button>
+              </>
+            )}
             <PressOnNailsOrder
               trigger={<Button size="sm" variant="outline" className="hidden sm:flex border-gold text-gold hover:bg-gold hover:text-white rounded-full px-5">Commander</Button>}
             />

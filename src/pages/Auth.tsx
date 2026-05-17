@@ -21,7 +21,8 @@ const Auth = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) navigate("/admin");
+    const role = localStorage.getItem("role");
+    if (token && role === "admin") navigate("/admin");
   }, [navigate]);
 
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -32,13 +33,21 @@ const Auth = () => {
     setLoading(true);
     try {
       const { email, password } = parsed.data;
-      const { token, userId } = mode === "login"
+      const data = mode === "login"
         ? await login(email, password)
         : await signup(email, password);
-      localStorage.setItem("token", token);
-      localStorage.setItem("userId", userId);
+      
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("userId", data.userId);
+      localStorage.setItem("role", data.role || "user");
+      
       toast.success(mode === "signup" ? "Compte créé !" : "Connecté !");
-      navigate("/admin");
+      
+      if (data.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
     } catch (err: any) {
       toast.error(err.message || "Erreur");
     } finally {

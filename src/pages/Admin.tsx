@@ -168,10 +168,22 @@ const Admin = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
     if (!token) {
       navigate("/auth");
       return;
     }
+
+    if (role !== "admin") {
+      toast.error("Accès refusé : vous n'êtes pas administrateur.");
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
+      navigate("/auth");
+      return;
+    }
+
     loadAll(token);
   }, []);
 
@@ -286,6 +298,7 @@ const Admin = () => {
 
   const logout = async () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
     localStorage.removeItem("userId");
     navigate("/auth");
   };
