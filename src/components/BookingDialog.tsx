@@ -5,10 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Sparkles, Eye, Check, Loader2, EyeClosed } from "lucide-react";
-import { createAppointment, getPrestations } from "@/integrations/api";
+import { createAppointment, getPrestations, API_URL } from "@/integrations/api";
 import { z } from "zod";
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const ALL_SLOTS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30"];
 

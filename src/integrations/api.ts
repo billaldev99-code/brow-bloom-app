@@ -6,7 +6,7 @@ const getApiUrl = () => {
   return 'https://brow-bloom-server.vercel.app'; // Remplacez par votre URL de backend réelle
 };
 
-const API_URL = getApiUrl();
+export const API_URL = getApiUrl();
 
 async function fetchWithTimeout(url: string, options: any = {}, timeout = 15000) {
   const controller = new AbortController();
