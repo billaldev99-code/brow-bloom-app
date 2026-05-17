@@ -402,6 +402,7 @@ const Admin = () => {
                 </div>
               </Card>
 
+              {/* ORDERS */}
               <Card className="overflow-hidden border-gold/20">
                 <div className="p-4 border-b border-border bg-gold/5 flex justify-between items-center">
                   <h2 className="font-display text-xl flex items-center gap-2">
@@ -527,10 +528,6 @@ const Admin = () => {
                 ))}
               </div>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="stats" className="m-0">
-            <StatsDashboard appointments={appointments} orders={orders} prestations={prestations} />
           </TabsContent>
         </Tabs>
       </main>
