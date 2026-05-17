@@ -9,6 +9,8 @@ import {
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
 import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 
 import heroImg from "@/assets/hero.jpg";
 import nailsImg from "@/assets/nails.jpg";
@@ -36,11 +38,27 @@ const Index = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getReviews().then(setReviews).catch(console.error);
-    getPrestations().then(setPrestations).catch(console.error);
-    getGalleryItems().then(setGallery).catch(console.error);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [reviewsData, prestationsData, galleryData] = await Promise.all([
+          getReviews().catch(() => []),
+          getPrestations().catch(() => []),
+          getGalleryItems().catch(() => []),
+        ]);
+        setReviews(reviewsData);
+        setPrestations(prestationsData);
+        setGallery(galleryData);
+      } catch (error) {
+        console.error("Data fetching error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   return (
@@ -162,14 +180,36 @@ const Index = () => {
             <h2 className="font-display text-4xl md:text-5xl mt-3">Une carte sur mesure</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            {["ongles", "sourcils", "cils"].map(cat => (
-              <ServiceCard
-                key={cat}
-                icon={cat === "ongles" ? Sparkles : cat === "sourcils" ? Eye : EyeClosed}
-                title={cat.charAt(0).toUpperCase() + cat.slice(1)}
-                items={prestations.filter(p => p.category === cat).map(p => [p.name, p.duration, p.price])}
-              />
-            ))}
+            {loading ? (
+              [1, 2, 3].map(i => (
+                <Card key={i} className="p-8 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-12 w-12 rounded-2xl" />
+                    <Skeleton className="h-8 w-32" />
+                  </div>
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4].map(j => (
+                      <div key={j} className="flex justify-between items-center">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                        <Skeleton className="h-4 w-12" />
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ))
+            ) : (
+              ["ongles", "sourcils", "cils"].map(cat => (
+                <ServiceCard
+                  key={cat}
+                  icon={cat === "ongles" ? Sparkles : cat === "sourcils" ? Eye : EyeClosed}
+                  title={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  items={prestations.filter(p => p.category === cat).map(p => [p.name, p.duration, p.price])}
+                />
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -231,21 +271,33 @@ const Index = () => {
             ))}
           </div>
 
-          {reviews.length > 0 && (
+          {(loading || reviews.length > 0) && (
             <div className="mb-12">
               <h3 className="font-display text-2xl mb-6 text-center">Avis récents</h3>
               <div className="grid md:grid-cols-3 gap-6">
-                {reviews.map((review) => (
-                  <div key={review.id} className="bg-card rounded-2xl p-6 shadow-soft">
-                    <div className="flex gap-1 mb-3">
-                      {[...Array(review.rating)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4 fill-gold text-gold" />
-                      ))}
+                {loading ? (
+                   [1, 2, 3].map(i => (
+                    <Card key={i} className="p-6 space-y-4">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map(j => <Skeleton key={j} className="h-4 w-4 rounded-full" />)}
+                      </div>
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-4 w-24" />
+                    </Card>
+                   ))
+                ) : (
+                  reviews.map((review) => (
+                    <div key={review.id} className="bg-card rounded-2xl p-6 shadow-soft">
+                      <div className="flex gap-1 mb-3">
+                        {[...Array(review.rating)].map((_, i) => (
+                          <Star key={i} className="h-4 w-4 fill-gold text-gold" />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4 italic">« {review.review_text} »</p>
+                      <div className="font-medium">{review.client_name}</div>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-4 italic">« {review.review_text} »</p>
-                    <div className="font-medium">{review.client_name}</div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -269,7 +321,11 @@ const Index = () => {
           <h2 className="font-display text-4xl md:text-5xl mt-3">Inspirations & réalisations</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {gallery.length === 0 ? (
+          {loading ? (
+             [1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+               <Skeleton key={i} className="w-full aspect-square rounded-2xl" />
+             ))
+          ) : gallery.length === 0 ? (
              [nailsImg, browsImg, heroImg, artistImg, browsImg, nailsImg, artistImg, heroImg].map((img, i) => (
               <div key={i} className="overflow-hidden rounded-2xl group">
                 <img src={img} alt={`Réalisation ${i+1}`} loading="lazy"
