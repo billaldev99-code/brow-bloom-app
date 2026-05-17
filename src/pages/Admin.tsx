@@ -111,10 +111,12 @@ interface GalleryItem {
   image_url: string;
   title: string;
   description: string;
+  media_type: 'image' | 'video';
 }
 
 // Helper for image compression
 const compressImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200): Promise<string> => {
+  if (base64Str.startsWith('data:video')) return Promise.resolve(base64Str); // Don't compress video strings here
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
@@ -798,10 +800,15 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     const file = e.target.files?.[0];
     if (!file) return;
     
+    const isVideo = file.type.startsWith('video/');
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const compressed = await compressImage(reader.result as string);
-      setEditing(prev => ({ ...prev, image_url: compressed }));
+      let content = reader.result as string;
+      setEditing(prev => ({ 
+        ...prev, 
+        image_url: content, 
+        media_type: isVideo ? 'video' : 'image' 
+      }));
     };
     reader.readAsDataURL(file);
   };
@@ -816,13 +823,18 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     setUploadingBatch(true);
     let successCount = 0;
     
-    toast.info(`Préparation de ${files.length} photo(s)...`);
+    toast.info(`Préparation de ${files.length} fichier(s)...`);
 
     for (const file of files) {
       try {
+        const isVideo = file.type.startsWith('video/');
         const base64 = await fileToBase64(file);
-        const compressed = await compressImage(base64);
-        await createGalleryItem({ image_url: compressed, title: "", description: "" }, token);
+        await createGalleryItem({ 
+          image_url: base64, 
+          title: "", 
+          description: "", 
+          media_type: isVideo ? 'video' : 'image' 
+        }, token);
         successCount++;
       } catch (err) {
         console.error(`Failed to upload ${file.name}:`, err);
@@ -830,10 +842,10 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     }
     
     if (successCount > 0) {
-      toast.success(`${successCount} photo(s) ajoutée(s) à la galerie !`);
+      toast.success(`${successCount} fichier(s) ajouté(s) à la galerie !`);
       onRefresh();
     } else {
-      toast.error("Échec de l'envoi des photos.");
+      toast.error("Échec de l'envoi des fichiers.");
     }
     
     setUploadingBatch(false);
@@ -846,7 +858,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     setLoading(true);
     try {
       await createGalleryItem(editing, token);
-      toast.success("Photo ajoutée");
+      toast.success("Élément ajouté");
       setEditing(null);
       onRefresh();
     } catch (err) {
@@ -857,12 +869,12 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
   };
 
   const remove = async (id: number) => {
-    if (!confirm("Supprimer cette photo ?")) return;
+    if (!confirm("Supprimer cet élément ?")) return;
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
       await deleteGalleryItem(id, token);
-      toast.success("Photo supprimée");
+      toast.success("Élément supprimé");
       onRefresh();
     } catch (err) {
       toast.error("Erreur lors de la suppression");
@@ -877,10 +889,10 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
           <Button variant="outline" className="rounded-full border-gold text-gold hover:bg-gold hover:text-white relative overflow-hidden" disabled={uploadingBatch}>
             {uploadingBatch ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <UploadCloud className="h-4 w-4 mr-2" />}
             {uploadingBatch ? "Envoi..." : "Ajout multiple"}
-            <input type="file" multiple accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleBatchUpload} disabled={uploadingBatch} />
+            <input type="file" multiple accept="image/*,video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleBatchUpload} disabled={uploadingBatch} />
           </Button>
-          <Button onClick={() => setEditing({ image_url: "", title: "", description: "" })} className="rounded-full bg-gold hover:bg-gold/90">
-            <Plus className="h-4 w-4 mr-2" /> Une photo
+          <Button onClick={() => setEditing({ image_url: "", title: "", description: "", media_type: 'image' })} className="rounded-full bg-gold hover:bg-gold/90">
+            <Plus className="h-4 w-4 mr-2" /> Un élément
           </Button>
         </div>
       </div>
@@ -890,9 +902,9 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Image (Upload)</Label>
-                <Input type="file" accept="image/*" onChange={handleFileUpload} className="mb-2" />
-                <p className="text-[10px] text-muted-foreground italic">Le site compresse automatiquement vos images pour une fluidité totale.</p>
+                <Label>Fichier (Photo ou Vidéo)</Label>
+                <Input type="file" accept="image/*,video/*" onChange={handleFileUpload} className="mb-2" />
+                <p className="text-[10px] text-muted-foreground italic">Le site compresse les images, les vidéos sont gardées telles quelles.</p>
               </div>
               <div className="space-y-2">
                 <Label>Titre (Optionnel)</Label>
@@ -914,7 +926,11 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
               <Label>Aperçu</Label>
               <div className="aspect-square rounded-2xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-card">
                 {editing.image_url ? (
-                  <img src={editing.image_url} className="w-full h-full object-cover" alt="Preview" />
+                  editing.media_type === 'video' ? (
+                    <video src={editing.image_url} className="w-full h-full object-cover" controls />
+                  ) : (
+                    <img src={editing.image_url} className="w-full h-full object-cover" alt="Preview" />
+                  )
                 ) : (
                   <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
                 )}
@@ -932,9 +948,14 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
         )}
         {data.map(item => (
           <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden shadow-soft">
-            <img src={item.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title || ""} />
+            {item.media_type === 'video' ? (
+              <video src={item.image_url} className="w-full h-full object-cover" muted loop onMouseOver={e => (e.target as HTMLVideoElement).play()} onMouseOut={e => (e.target as HTMLVideoElement).pause()} />
+            ) : (
+              <img src={item.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title || ""} />
+            )}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center">
               {item.title && <div className="text-white text-xs font-bold mb-1">{item.title}</div>}
+              {item.media_type === 'video' && <div className="text-gold text-[10px] mb-2">Vidéo</div>}
               <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => remove(item.id)}>
                 <Trash2 className="h-4 w-4" />
               </Button>

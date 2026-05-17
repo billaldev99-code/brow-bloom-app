@@ -33,6 +33,7 @@ interface GalleryItem {
   image_url: string;
   title: string;
   description: string;
+  media_type: 'image' | 'video';
 }
 
 const Index = () => {
@@ -367,11 +368,22 @@ const Index = () => {
             ))
           ) : (
             gallery.map((item) => (
-              <div key={item.id} className="overflow-hidden rounded-2xl group relative shadow-soft">
-                <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
-                  className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110" />
+              <div key={item.id} className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square">
+                {item.media_type === 'video' ? (
+                   <video 
+                     src={item.image_url} 
+                     className="w-full h-full object-cover" 
+                     muted 
+                     loop 
+                     onMouseOver={e => (e.target as HTMLVideoElement).play()} 
+                     onMouseOut={e => (e.target as HTMLVideoElement).pause()}
+                   />
+                ) : (
+                  <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                )}
                 {item.title && (
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center">
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center pointer-events-none">
                     <div className="text-white">
                       <div className="font-display text-lg">{item.title}</div>
                       {item.description && <div className="text-xs opacity-80">{item.description}</div>}
