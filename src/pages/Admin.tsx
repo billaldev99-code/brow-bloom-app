@@ -800,7 +800,12 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     const file = e.target.files?.[0];
     if (!file) return;
     
-    const isVideo = file.type.startsWith('video/');
+    const fileName = file.name.toLowerCase();
+    const isVideo = file.type.startsWith('video/') || 
+                    fileName.endsWith('.mp4') || 
+                    fileName.endsWith('.mov') || 
+                    fileName.endsWith('.webm');
+    
     const reader = new FileReader();
     reader.onloadend = async () => {
       let content = reader.result as string;
@@ -827,7 +832,12 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
 
     for (const file of files) {
       try {
-        const isVideo = file.type.startsWith('video/');
+        const fileName = file.name.toLowerCase();
+        const isVideo = file.type.startsWith('video/') || 
+                        fileName.endsWith('.mp4') || 
+                        fileName.endsWith('.mov') || 
+                        fileName.endsWith('.webm');
+        
         const base64 = await fileToBase64(file);
         await createGalleryItem({ 
           image_url: base64, 
@@ -855,14 +865,28 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
   const save = async () => {
     const token = localStorage.getItem("token");
     if (!token || !editing?.image_url) return;
+    
+    // Safety check: 20MB limit for base64 (approx 15MB file)
+    if (editing.image_url.length > 20 * 1024 * 1024) {
+      toast.error("Le fichier est trop volumineux (max ~15Mo).");
+      return;
+    }
+
     setLoading(true);
     try {
       await createGalleryItem(editing, token);
       toast.success("Élément ajouté");
       setEditing(null);
       onRefresh();
-    } catch (err) {
-      toast.error("Erreur lors de l'ajout.");
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      if (err.message?.includes("413")) {
+        toast.error("Fichier trop lourd pour le serveur.");
+      } else if (err.name === "AbortError") {
+        toast.error("Le téléchargement a pris trop de temps (timeout).");
+      } else {
+        toast.error("Erreur lors de l'ajout. Vérifiez la taille du fichier.");
+      }
     } finally {
       setLoading(false);
     }

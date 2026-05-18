@@ -367,31 +367,47 @@ const Index = () => {
               </div>
             ))
           ) : (
-            gallery.map((item) => (
-              <div key={item.id} className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square">
-                {item.media_type === 'video' ? (
-                   <video 
-                     src={item.image_url} 
-                     className="w-full h-full object-cover" 
-                     muted 
-                     loop 
-                     onMouseOver={e => (e.target as HTMLVideoElement).play()} 
-                     onMouseOut={e => (e.target as HTMLVideoElement).pause()}
-                   />
-                ) : (
-                  <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                )}
-                {item.title && (
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center pointer-events-none">
-                    <div className="text-white">
-                      <div className="font-display text-lg">{item.title}</div>
-                      {item.description && <div className="text-xs opacity-80">{item.description}</div>}
+            gallery.map((item) => {
+              const isVideo = item.media_type === 'video' || 
+                              item.image_url.startsWith('data:video') || 
+                              item.image_url.endsWith('.mp4') || 
+                              item.image_url.endsWith('.mov');
+              
+              return (
+                <div 
+                  key={item.id} 
+                  className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square bg-muted"
+                >
+                  {isVideo ? (
+                     <div className="w-full h-full relative">
+                       <video 
+                         src={item.image_url} 
+                         className="w-full h-full object-cover" 
+                         muted 
+                         loop 
+                         playsInline
+                         autoPlay
+                         onMouseOver={e => (e.target as HTMLVideoElement).play()}
+                       />
+                       <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-md rounded-full p-1.5 text-white">
+                         <Sparkles className="h-3 w-3" />
+                       </div>
+                     </div>
+                  ) : (
+                    <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  )}
+                  {item.title && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center pointer-events-none">
+                      <div className="text-white">
+                        <div className="font-display text-lg">{item.title}</div>
+                        {item.description && <div className="text-xs opacity-80">{item.description}</div>}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </section>

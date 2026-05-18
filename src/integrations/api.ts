@@ -8,7 +8,7 @@ const getApiUrl = () => {
 
 export const API_URL = getApiUrl();
 
-async function fetchWithTimeout(url: string, options: any = {}, timeout = 15000) {
+async function fetchWithTimeout(url: string, options: any = {}, timeout = 60000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   console.log(`🚀 Requesting: ${url}`);
