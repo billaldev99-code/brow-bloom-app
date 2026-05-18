@@ -3,7 +3,7 @@ const getApiUrl = () => {
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://localhost:3001';
   }
-  return 'https://brow-bloom-server.vercel.app'; // Remplacez par votre URL de backend réelle
+  return 'https://brow-bloom-api.vercel.app'; // URL du backend déployé
 };
 
 export const API_URL = getApiUrl();
