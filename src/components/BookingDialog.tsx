@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Sparkles, Eye, Check, Loader2, EyeClosed } from "lucide-react";
 import { createAppointment, getPrestations, API_URL } from "@/integrations/api";
 import { z } from "zod";
-
+//commmentaire pour tester le déploiement sur vercel, à supprimer après
 const ALL_SLOTS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30"];
 
 const formSchema = z.object({
