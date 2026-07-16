@@ -13,6 +13,14 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  max: 1,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle PG client:', err.message);
 });
 
 app.use(cors());

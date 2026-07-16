@@ -175,7 +175,7 @@ const Index = () => {
       <section className="py-20 container">
         <div className="grid md:grid-cols-2 gap-6">
           {[
-            { img: nailsImg, icon: Sparkles, title: "Ongles", desc: "Pose gel, semi-permanent, nail art — pour des mains toujours impeccables." },
+            { img: nailsImg, icon: Sparkles, title: "Ongles", desc: "Pose de capsules, gel sur ongles naturels, vernis semi-permanent, nail art\u00A0—\u00A0pour des mains toujours\u00A0impeccables." },
             { img: browsImg, icon: Eye, title: "Sourcils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
             { img: cilsImg, icon: EyeClosed, title: "Cils", desc: "Rehaussement de cils, extensions, teinture — pour un regard élégant et lumineux." },
             { img: ponImg, icon: Sparkles, title: "Press on nails", desc: "Capsules sur mesure, réutilisables et prêtes à porter — la beauté des ongles en toute simplicité.", isPON: true },
@@ -213,9 +213,9 @@ const Index = () => {
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Nos prestations</span>
             <h2 className="font-display text-4xl md:text-5xl mt-3">Une carte sur mesure</h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8">
             {loading ? (
-              [1, 2, 3].map(i => (
+              [1, 2, 3, 4].map(i => (
                 <Card key={i} className="p-8 space-y-6">
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-12 w-12 rounded-2xl" />
@@ -235,14 +235,25 @@ const Index = () => {
                 </Card>
               ))
             ) : (
-              ["ongles", "sourcils", "cils"].map(cat => (
-                <ServiceCard
-                  key={cat}
-                  icon={cat === "ongles" ? Sparkles : cat === "sourcils" ? Eye : EyeClosed}
-                  title={cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  items={prestations.filter(p => p.category === cat).map(p => [p.name, p.duration, p.price])}
-                />
-              ))
+              ["ongles", "sourcils", "cils", "press on nails"].map(cat => {
+                const items = prestations
+                  .filter(p => p.category === cat)
+                  .map(p => [p.name, p.duration, p.price] as string[]);
+
+                if (cat === "sourcils") {
+                  const idx = items.findIndex(([n]) => n === "Rehaussement de cils");
+                  if (idx > 0) items.splice(idx, 0, ["__HEADER__", "Rehaussement de cils", ""]);
+                }
+
+                return (
+                  <ServiceCard
+                    key={cat}
+                    icon={cat === "ongles" || cat === "press on nails" ? Sparkles : cat === "sourcils" ? Eye : EyeClosed}
+                    title={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    items={items}
+                  />
+                );
+              })
             )}
           </div>
         </div>
@@ -448,8 +459,12 @@ const Index = () => {
             <h2 className="font-display text-4xl md:text-5xl mt-3 mb-8">Venez nous rendre visite</h2>
             <div className="space-y-4">
               <Info icon={MapPin} label="Ighrem, Akbou, Bejaia" />
-              <Info icon={Phone} label="+213 791 59 28" />
-              <Info icon={MessageCircle} label="+213 791 59 28 80 (WhatsApp)" />
+              <a href="tel:+213791592880" className="hover:text-gold transition-colors block">
+                <Info icon={Phone} label="+213 791 59 28 80" />
+              </a>
+              <a href="https://wa.me/213791592880" target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors block">
+                <Info icon={MessageCircle} label="+213 791 59 28 80" />
+              </a>
               <a href="https://www.instagram.com/maisonbelle" target="_blank" rel="noopener noreferrer" className="hover:text-gold transition-colors block">
                 <Info icon={Instagram} label="@maisonbelle" />
               </a>
@@ -483,7 +498,7 @@ const Index = () => {
       <footer className="border-t border-border py-8">
         <div className="container flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <div className="font-display text-lg text-foreground">Maison <span className="text-gold">Belle</span></div>
-          <div>© {new Date().getFullYear()} — Tous droits réservés.</div>
+          <div>© {new Date().getFullYear()} — Tous droits réservés. <span className="ml-1 opacity-70">Designed & developed by Billal</span></div>
         </div>
       </footer>
 
@@ -508,16 +523,12 @@ const Index = () => {
   );
 };
 
-const ServiceCard = ({ icon: Icon, title, items }: { icon: any; title: string; items: string[][] }) => (
-  <div className="bg-card rounded-3xl p-8 shadow-soft">
-    <div className="flex items-center gap-3 mb-6">
-      <div className="h-12 w-12 rounded-2xl gradient-gold flex items-center justify-center shadow-gold">
-        <Icon className="h-5 w-5 text-gold-foreground" />
-      </div>
-      <h3 className="font-display text-2xl">{title}</h3>
-    </div>
+const ServiceCard = ({ icon: Icon, title, items }: { icon: any; title: string; items: string[][] }) => {
+  const headerIdx = items.findIndex(([n]) => n === "__HEADER__");
+
+  const renderRows = (rows: string[][]) => (
     <ul className="divide-y divide-border">
-      {items.map(([n, d, p]) => (
+      {rows.map(([n, d, p]) => (
         <li key={n} className="py-3 flex justify-between items-center">
           <div>
             <div className="font-medium">{n}</div>
@@ -527,8 +538,35 @@ const ServiceCard = ({ icon: Icon, title, items }: { icon: any; title: string; i
         </li>
       ))}
     </ul>
-  </div>
-);
+  );
+
+  const before = headerIdx > -1 ? items.slice(0, headerIdx) : items;
+  const after = headerIdx > -1 ? items.slice(headerIdx + 1) : [];
+
+  return (
+    <div className="bg-card rounded-3xl p-8 shadow-soft">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="h-12 w-12 rounded-2xl gradient-gold flex items-center justify-center shadow-gold">
+          <Icon className="h-5 w-5 text-gold-foreground" />
+        </div>
+        <h3 className="font-display text-2xl">{title}</h3>
+      </div>
+
+      {before.length > 0 && renderRows(before)}
+
+      {headerIdx > -1 && (
+        <div className="flex items-center gap-3 pt-6 pb-2">
+          <div className="h-12 w-12 rounded-2xl gradient-gold flex items-center justify-center shadow-gold">
+            <Icon className="h-5 w-5 text-gold-foreground" />
+          </div>
+          <h4 className="font-display text-2xl">{items[headerIdx][1]}</h4>
+        </div>
+      )}
+
+      {after.length > 0 && renderRows(after)}
+    </div>
+  );
+};
 
 const Info = ({ icon: Icon, label }: { icon: any; label: string }) => (
   <div className="flex items-center gap-3">
