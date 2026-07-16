@@ -557,7 +557,7 @@ const ServiceCard = ({ icon: Icon, title, items }: { icon: any; title: string; i
       {headerIdx > -1 && (
         <div className="flex items-center gap-3 pt-6 pb-2">
           <div className="h-12 w-12 rounded-2xl gradient-gold flex items-center justify-center shadow-gold">
-            <Icon className="h-5 w-5 text-gold-foreground" />
+            <EyeClosed className="h-5 w-5 text-gold-foreground" />
           </div>
           <h4 className="font-display text-2xl">{items[headerIdx][1]}</h4>
         </div>

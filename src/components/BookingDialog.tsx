@@ -29,7 +29,7 @@ interface Props { trigger: React.ReactNode; }
 export const BookingDialog = ({ trigger }: Props) => {
   const [step, setStep] = useState(1);
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<"ongles" | "sourcils" | "cils" | null>(null);
+  const [category, setCategory] = useState<"ongles" | "sourcils" | "cils" | "rehaussement de cils" | null>(null);
   const [service, setService] = useState<string | null>(null);
   const [date, setDate] = useState<string>("");
   const [slot, setSlot] = useState<string | null>(null);
@@ -100,7 +100,10 @@ export const BookingDialog = ({ trigger }: Props) => {
 
   const today = new Date().toISOString().split("T")[0];
 
-  const filteredServices = prestations.filter(p => p.category === category);
+  const filteredServices = prestations.filter(p => {
+    if (category === "rehaussement de cils") return p.name.startsWith("Rehaussement de cils");
+    return p.category === category && !p.name.startsWith("Rehaussement de cils");
+  });
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setTimeout(reset, 400); }}>
@@ -113,7 +116,7 @@ export const BookingDialog = ({ trigger }: Props) => {
         {step === 1 && (
           <div className="space-y-3 pt-2">
             <p className="text-sm text-muted-foreground">Choisissez votre catégorie</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button onClick={() => { setCategory("ongles"); setStep(2); }}
                 className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
                 <Sparkles className="mx-auto mb-2 text-gold" />
@@ -128,6 +131,11 @@ export const BookingDialog = ({ trigger }: Props) => {
                 className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
                 <EyeClosed className="mx-auto mb-2 text-gold" />
                 <div className="font-display text-lg">Cils</div>
+              </button>
+              <button onClick={() => { setCategory("rehaussement de cils"); setStep(2); }}
+                className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
+                <EyeClosed className="mx-auto mb-2 text-gold" />
+                <div className="font-display text-lg">Rehaussement de cils</div>
               </button>
             </div>
           </div>
@@ -147,6 +155,9 @@ export const BookingDialog = ({ trigger }: Props) => {
                 <div className="text-gold font-medium">{s.price}</div>
               </button>
             ))}
+            <Button variant="ghost" className="w-full mt-2" onClick={() => setStep(1)}>
+              ← Retour
+            </Button>
           </div>
         )}
 
@@ -179,9 +190,14 @@ export const BookingDialog = ({ trigger }: Props) => {
                 )}
               </div>
             )}
-            <Button disabled={!date || !slot} onClick={() => setStep(4)} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-              Continuer
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" className="flex-1" onClick={() => setStep(2)}>
+                ← Retour
+              </Button>
+              <Button disabled={!date || !slot} onClick={() => setStep(4)} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
+                Continuer
+              </Button>
+            </div>
           </div>
         )}
 
@@ -220,6 +236,9 @@ export const BookingDialog = ({ trigger }: Props) => {
             </div>
             <Button type="submit" disabled={submitting} className="w-full bg-gold text-gold-foreground hover:bg-gold/90 shadow-gold">
               {submitting ? <Loader2 className="animate-spin h-4 w-4" /> : <><Check className="mr-2 h-4 w-4" /> Confirmer</>}
+            </Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={() => setStep(3)} disabled={submitting}>
+              ← Retour
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               Confirmation par email + SMS. Rappel 24h avant.
