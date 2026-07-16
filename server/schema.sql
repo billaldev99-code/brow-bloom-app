@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS appointments (
 CREATE TABLE IF NOT EXISTS orders (
   id SERIAL PRIMARY KEY,
   type TEXT NOT NULL,
+  forme TEXT,
+  taille TEXT,
   selected_prestations TEXT[] NOT NULL,
   quantity INTEGER NOT NULL,
   total_price DECIMAL(10, 2) NOT NULL,

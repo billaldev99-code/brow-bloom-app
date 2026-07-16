@@ -16,11 +16,12 @@ import {
   Package,
   Plus,
   Minus,
-  CheckCircle2
+  CheckCircle2,
+  Image as ImageIcon
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { createOrder, getItemsPON } from "@/integrations/api";
+import { createOrder } from "@/integrations/api";
 import nailsImg from "@/assets/nails.jpg";
 import { useEffect } from "react";
 
@@ -46,30 +47,25 @@ const wilayas = [
   "In Guezzam", "Touggourt", "Djanet", "M'Ghair", "El Meniaa"
 ];
 
+const PON_MODELS: ItemPON[] = [
+  { id: 1, name: "Classique", price: 1500, description: "", image_url: "" },
+  { id: 2, name: "French", price: 1800, description: "", image_url: "" },
+  { id: 3, name: "Baby Boomer", price: 1800, description: "", image_url: "" },
+  { id: 4, name: "Effet Chrome", price: 1800, description: "", image_url: "" },
+  { id: 5, name: "Nail Art", price: 2000, description: "à partir de", image_url: "" },
+];
+
+const formatPrice = (n: number) => `${n.toLocaleString("fr-FR")} DA`;
+
 export const PressOnNailsOrder = ({ trigger }: Props) => {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [type, setType] = useState<"hands" | "feet" | null>(null);
+  const [forme, setForme] = useState<string | null>(null);
+  const [taille, setTaille] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<{id: number, qty: number}[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
-  const [prestations, setPrestations] = useState<ItemPON[]>([]);
-
-  useEffect(() => {
-    if (open) {
-      setFetching(true);
-      getItemsPON()
-        .then(data => {
-          console.log("Fetched PON items:", data);
-          setPrestations(data || []);
-        })
-        .catch(err => {
-          console.error("Failed to fetch PON items:", err);
-          toast.error("Impossible de charger les modèles.");
-        })
-        .finally(() => setFetching(false));
-    }
-  }, [open]);
+  const [prestations, setPrestations] = useState<ItemPON[]>(PON_MODELS);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -84,6 +80,8 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
   const reset = () => {
     setStep(1);
     setType(null);
+    setForme(null);
+    setTaille(null);
     setSelectedItems([]);
     setFormData({
       name: "",
@@ -128,6 +126,8 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
     try {
       const orderData = {
         type,
+        forme,
+        taille,
         selected_prestations: selectedItems.map(item => {
           const p = prestations.find(p => p.id === item.id);
           return `${p?.name || 'Inconnu'} (x${item.qty})`;
@@ -145,7 +145,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
       
       await createOrder(orderData);
       toast.success("Commande envoyée avec succès ! ✨");
-      setStep(6); // Success step
+      setStep(8); // Success step
     } catch (error) {
       console.error("Order error:", error);
       toast.error("Une erreur est survenue lors de l'envoi de la commande.");
@@ -157,7 +157,12 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev - 1);
 
-  const progress = (step / 5) * 100;
+  const isFeet = type === "feet";
+  const totalSteps = isFeet ? 5 : 7;
+  const displayStep = isFeet
+    ? (step === 1 ? 1 : step === 2 ? 2 : step === 5 ? 3 : step === 6 ? 4 : step === 7 ? 5 : step)
+    : step;
+  const progress = (displayStep / totalSteps) * 100;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setTimeout(reset, 400); }}>
@@ -168,11 +173,11 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
             <div className="flex justify-between items-end">
               <div>
                 <DialogTitle className="font-display text-3xl">Commander vos Press On Nails</DialogTitle>
-                {step <= 5 && <p className="text-muted-foreground mt-1">Étape {step} sur 5</p>}
+                {displayStep <= totalSteps && <p className="text-muted-foreground mt-1">Étape {displayStep} sur {totalSteps}</p>}
               </div>
               <ShoppingBag className="text-gold h-8 w-8" />
             </div>
-            {step <= 5 && <Progress value={progress} className="h-1.5 bg-secondary" />}
+            {displayStep <= totalSteps && <Progress value={progress} className="h-1.5 bg-secondary" />}
           </DialogHeader>
 
           <div className="min-h-[400px]">
@@ -202,7 +207,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                   </button>
 
                   <button
-                    onClick={() => { setType("feet"); nextStep(); }}
+                    onClick={() => { setType("feet"); setStep(2); }}
                     className={cn(
                       "group relative p-8 rounded-3xl border-2 transition-all duration-300 text-center space-y-4",
                       type === "feet" ? "border-gold bg-secondary/50" : "border-border hover:border-gold/50 hover:bg-secondary/20"
@@ -221,8 +226,68 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
               </div>
             )}
 
-            {/* STEP 2: CHOICE OF SERVICE */}
-            {step === 2 && (
+            {/* STEP 2: CHOICE OF FORME (mains only) */}
+            {step === 2 && !isFeet && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-medium">Quelle forme souhaitez-vous ?</h3>
+                  <p className="text-sm text-muted-foreground">Sélectionnez la forme de vos Press On Nails.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {["Amande", "Carrée", "Carrée arrondie (Squoval)", "Coffin (Ballerine)", "Stiletto", "Ovale"].map((f) => (
+                    <button
+                      type="button"
+                      key={f}
+                      onClick={() => { setForme(f); setStep(3); }}
+                      className={cn(
+                        "p-5 rounded-2xl border-2 transition-all duration-300 text-center",
+                        forme === f ? "border-gold bg-secondary/50" : "border-border hover:border-gold/50 hover:bg-secondary/20"
+                      )}
+                    >
+                      <span className="font-display text-lg">{f}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button variant="outline" onClick={() => setStep(1)} className="flex-1 rounded-full">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: CHOICE OF TAILLE (mains only) */}
+            {step === 3 && !isFeet && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-medium">Quelle taille ?</h3>
+                  <p className="text-sm text-muted-foreground">Sélectionnez votre taille.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {["S", "M", "L", "XL"].map((t) => (
+                    <button
+                      type="button"
+                      key={t}
+                      onClick={() => { setTaille(t); setStep(4); }}
+                      className={cn(
+                        "p-6 rounded-2xl border-2 transition-all duration-300 text-center",
+                        taille === t ? "border-gold bg-secondary/50" : "border-border hover:border-gold/50 hover:bg-secondary/20"
+                      )}
+                    >
+                      <span className="font-display text-2xl">{t}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button variant="outline" onClick={() => setStep(2)} className="flex-1 rounded-full">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4 (mains) / STEP 2 (pieds): CHOICE OF SERVICE */}
+            {(step === 4 || (step === 2 && isFeet)) && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-medium">Choisissez vos modèles</h3>
@@ -231,20 +296,12 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                   </span>
                 </div>
 
-                {fetching ? (
-                  <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                    <Loader2 className="h-10 w-10 animate-spin text-gold" />
-                    <p className="text-sm text-muted-foreground">Chargement des modèles...</p>
-                  </div>
-                ) : prestations.length === 0 ? (
+                {prestations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 space-y-4 border-2 border-dashed rounded-3xl">
                     <Package className="h-10 w-10 text-muted-foreground opacity-20" />
                     <p className="text-sm text-muted-foreground text-center px-6">
                       Aucun modèle n'est disponible pour le moment.<br/>Revenez plus tard ou contactez-nous.
                     </p>
-                    <Button variant="outline" size="sm" onClick={() => getItemsPON().then(setPrestations)}>
-                      Actualiser
-                    </Button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
@@ -275,7 +332,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                         </div>
                         <div className="p-3 space-y-1">
                           <div className="font-medium text-sm truncate">{p.name}</div>
-                          <div className="text-gold font-bold text-xs">{p.price}€</div>
+                          <div className="text-gold font-bold text-xs">{p.description ? p.description + " " : ""}{formatPrice(p.price)}</div>
                         </div>
                       </button>
                     ))}
@@ -283,12 +340,12 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="outline" onClick={prevStep} className="flex-1 rounded-full">
+                  <Button variant="outline" onClick={() => isFeet ? setStep(1) : setStep(3)} className="flex-1 rounded-full">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Retour
                   </Button>
                   <Button 
                     disabled={selectedItems.length === 0} 
-                    onClick={nextStep} 
+                    onClick={() => setStep(5)} 
                     className="flex-[2] bg-primary rounded-full"
                   >
                     Continuer <ArrowRight className="ml-2 h-4 w-4" />
@@ -297,8 +354,8 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
               </div>
             )}
 
-            {/* STEP 3: QUANTITY */}
-            {step === 3 && (
+            {/* STEP 5: QUANTITY */}
+            {step === 5 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center space-y-1">
                   <h3 className="text-xl font-medium">Quantités par modèle</h3>
@@ -314,7 +371,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                           {p?.image_url && <img src={p.image_url} className="w-12 h-12 rounded-lg object-cover" alt="" />}
                           <div>
                             <div className="font-medium text-sm">{p?.name || 'Inconnu'}</div>
-                            <div className="text-gold text-xs font-bold">{p?.price || 0}€ / unité</div>
+                            <div className="text-gold text-xs font-bold">{formatPrice(p?.price || 0)} / unité</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -346,9 +403,21 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                       <span className="text-muted-foreground">Zone :</span>
                       <span className="font-medium">{type === "hands" ? "Mains" : "Pieds"}</span>
                     </div>
+                    {type === "hands" && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Forme :</span>
+                          <span className="font-medium">{forme}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Taille :</span>
+                          <span className="font-medium">{taille}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="border-t border-border/50 pt-2 flex justify-between text-lg font-display">
                       <span>Total :</span>
-                      <span className="text-gold">{totalPrice}€</span>
+                      <span className="text-gold">{formatPrice(totalPrice)}</span>
                     </div>
                   </div>
                   <div className="bg-white/50 rounded-xl p-3 text-xs text-center border border-gold/10">
@@ -357,7 +426,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={prevStep} className="flex-1 rounded-full">
+                  <Button variant="outline" onClick={() => isFeet ? setStep(2) : setStep(4)} className="flex-1 rounded-full">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Retour
                   </Button>
                   <Button onClick={nextStep} className="flex-[2] bg-primary rounded-full">
@@ -367,8 +436,8 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
               </div>
             )}
 
-            {/* STEP 4: CLIENT INFO */}
-            {step === 4 && (
+            {/* STEP 6: CLIENT INFO */}
+            {step === 6 && (
               <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -466,8 +535,8 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
               </form>
             )}
 
-            {/* STEP 5: CONFIRMATION SUMMARY */}
-            {step === 5 && (
+            {/* STEP 7: CONFIRMATION SUMMARY */}
+            {step === 7 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-secondary/30 rounded-3xl p-6 space-y-4 border border-gold/10">
                   <h3 className="text-xl font-display border-b border-border pb-2">Résumé de la commande</h3>
@@ -477,6 +546,12 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                       <h4 className="font-bold uppercase text-[10px] tracking-widest text-gold">Produits</h4>
                       <div className="space-y-2">
                         <p><span className="text-muted-foreground">Type :</span> {type === "hands" ? "Mains" : "Pieds"}</p>
+                        {type === "hands" && (
+                          <>
+                            <p><span className="text-muted-foreground">Forme :</span> {forme}</p>
+                            <p><span className="text-muted-foreground">Taille :</span> {taille}</p>
+                          </>
+                        )}
                         <div className="space-y-1">
                           <span className="text-muted-foreground">Modèles :</span>
                           <ul className="pl-2 space-y-1">
@@ -491,7 +566,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                             })}
                           </ul>
                         </div>
-                        <p className="text-lg font-display text-gold pt-2 border-t border-gold/10">Total : {totalPrice}€</p>
+                        <p className="text-lg font-display text-gold pt-2 border-t border-gold/10">Total : {formatPrice(totalPrice)}</p>
                       </div>
                     </div>
                     
@@ -502,6 +577,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                         <p>{formData.phone}</p>
                         <p className="text-xs text-muted-foreground">{formData.address}</p>
                         <p className="text-xs text-muted-foreground">{formData.commune}, {formData.wilaya}</p>
+                        <p className="text-xs text-gold font-medium pt-1">🚚 Livraison gratuite à Akbou</p>
                       </div>
                     </div>
                   </div>
@@ -516,15 +592,15 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                     {loading ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />}
                     Confirmer la commande
                   </Button>
-                  <Button variant="ghost" onClick={() => setStep(4)} className="text-muted-foreground">
+                  <Button variant="ghost" onClick={() => setStep(6)} className="text-muted-foreground">
                     Modifier mes informations
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* STEP 6: SUCCESS */}
-            {step === 6 && (
+            {/* STEP 8: SUCCESS */}
+            {step === 8 && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 py-12 animate-in zoom-in-95 duration-500">
                 <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center relative">
                   <div className="absolute inset-0 rounded-full border-4 border-gold/30" />

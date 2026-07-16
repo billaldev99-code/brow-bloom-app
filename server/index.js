@@ -188,10 +188,20 @@ const sendOrderConfirmationEmail = async (order) => {
         <span>PON-${order.id.toString().padStart(4, '0')}</span>
       </div>
       
-      <div class="order-detail">
-        <strong>💄 Type</strong>
-        <span>${order.type === 'hands' ? 'Mains' : 'Pieds'}</span>
-      </div>
+        <div class="order-detail">
+          <strong>💄 Type</strong>
+          <span>${order.type === 'hands' ? 'Mains' : 'Pieds'}</span>
+        </div>
+        
+        <div class="order-detail">
+          <strong>💅 Forme</strong>
+          <span>${order.forme || '-'}</span>
+        </div>
+        
+        <div class="order-detail">
+          <strong>📏 Taille</strong>
+          <span>${order.taille || '-'}</span>
+        </div>
       
       <div class="order-detail">
         <strong>✨ Modèles</strong>
@@ -205,7 +215,7 @@ const sendOrderConfirmationEmail = async (order) => {
       
       <div class="order-detail">
         <strong>💰 Total</strong>
-        <span>${order.total_price}€</span>
+        <span>${Number(order.total_price).toLocaleString('fr-FR')} DA</span>
       </div>
       
       <div class="order-detail">
@@ -473,6 +483,8 @@ app.get('/api/orders', verifyToken, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   const { 
     type, 
+    forme,
+    taille,
     selected_prestations, 
     quantity, 
     total_price, 
@@ -486,8 +498,8 @@ app.post('/api/orders', async (req, res) => {
   
   try {
     const result = await pool.query(
-      'INSERT INTO orders (type, selected_prestations, quantity, total_price, client_name, client_phone, client_email, address, wilaya, commune) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [type, selected_prestations, quantity, total_price, client_name, client_phone, client_email, address, wilaya, commune]
+      'INSERT INTO orders (type, forme, taille, selected_prestations, quantity, total_price, client_name, client_phone, client_email, address, wilaya, commune) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
+      [type, forme, taille, selected_prestations, quantity, total_price, client_name, client_phone, client_email, address, wilaya, commune]
     );
     
     const order = result.rows[0];
