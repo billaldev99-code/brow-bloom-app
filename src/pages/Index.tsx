@@ -5,7 +5,7 @@ import { PressOnNailsOrder } from "@/components/PressOnNailsOrder";
 import { FormationDialog } from "@/components/FormationDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
@@ -41,12 +41,33 @@ const Index = () => {
   const navigate = useNavigate();
   const [reviews, setReviews] = useState<any[]>([]);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [gallery, setGallery] = useState<GalleryItem[]>(() => {
+    try {
+      const cached = localStorage.getItem("galleryCache");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(true);
-  const [galleryLoading, setGalleryLoading] = useState(true);
+  const [galleryLoading, setGalleryLoading] = useState(() => {
+    try {
+      return !localStorage.getItem("galleryCache");
+    } catch {
+      return true;
+    }
+  });
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);
+
+  useEffect(() => {
+    if (!lightboxItem) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxItem(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxItem]);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -79,7 +100,14 @@ const Index = () => {
       }
 
       getGalleryItems()
-        .then(setGallery)
+        .then((data) => {
+          setGallery(data);
+          try {
+            localStorage.setItem("galleryCache", JSON.stringify(data));
+          } catch (e) {
+            console.warn("Impossible de mettre la galerie en cache", e);
+          }
+        })
         .catch((error) => console.error("Gallery fetching error:", error))
         .finally(() => setGalleryLoading(false));
     };
@@ -445,7 +473,8 @@ const Index = () => {
               return (
                 <div 
                   key={item.id} 
-                  className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square bg-muted"
+                  onClick={() => setLightboxItem(item)}
+                  className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square bg-muted cursor-pointer"
                 >
                   {isVideo ? (
                      <div className="w-full h-full relative">
@@ -480,6 +509,51 @@ const Index = () => {
           )}
         </div>
       </section>
+
+      {/* LIGHTBOX */}
+      {lightboxItem && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setLightboxItem(null)}
+        >
+          <button
+            onClick={() => setLightboxItem(null)}
+            aria-label="Fermer"
+            className="absolute top-5 right-5 text-white/80 hover:text-white transition"
+          >
+            <X className="h-8 w-8" />
+          </button>
+          <div className="max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            {(lightboxItem.media_type === 'video' ||
+              lightboxItem.image_url.startsWith('data:video') ||
+              lightboxItem.image_url.endsWith('.mp4') ||
+              lightboxItem.image_url.endsWith('.mov')) ? (
+              <video
+                src={lightboxItem.image_url}
+                className="max-w-full max-h-[85vh] rounded-2xl"
+                controls
+                autoPlay
+                loop
+                playsInline
+              />
+            ) : (
+              <img
+                src={lightboxItem.image_url}
+                alt={lightboxItem.title || "Réalisation"}
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl"
+              />
+            )}
+            {lightboxItem.title && (
+              <div className="text-center text-white mt-4">
+                <div className="font-display text-xl">{lightboxItem.title}</div>
+                {lightboxItem.description && (
+                  <div className="text-sm opacity-80">{lightboxItem.description}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* CTA */}
       <section className="py-20">
