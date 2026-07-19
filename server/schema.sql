@@ -71,8 +71,21 @@ CREATE TABLE IF NOT EXISTS gallery (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Créer la table formations
+CREATE TABLE IF NOT EXISTS formations (
+  id SERIAL PRIMARY KEY,
+  type TEXT NOT NULL, -- 'ongles', 'cils', 'sourcils'
+  client_name TEXT NOT NULL,
+  client_phone TEXT NOT NULL,
+  client_email TEXT NOT NULL,
+  status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'rejected'
+  admin_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Index pour les performances
 CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_prestations_category ON prestations(category);
+CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);

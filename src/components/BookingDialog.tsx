@@ -37,11 +37,23 @@ export const BookingDialog = ({ trigger }: Props) => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
+  const [prestationsLoading, setPrestationsLoading] = useState(false);
+  const [prestationsError, setPrestationsError] = useState(false);
+
+  const loadPrestations = () => {
+    setPrestationsLoading(true);
+    setPrestationsError(false);
+    getPrestations()
+      .then(setPrestations)
+      .catch((err) => {
+        console.error(err);
+        setPrestationsError(true);
+      })
+      .finally(() => setPrestationsLoading(false));
+  };
 
   useEffect(() => {
-    if (open) {
-      getPrestations().then(setPrestations).catch(console.error);
-    }
+    if (open) loadPrestations();
   }, [open]);
 
   useEffect(() => {
@@ -144,8 +156,21 @@ export const BookingDialog = ({ trigger }: Props) => {
         {step === 2 && category && (
           <div className="space-y-2 pt-2 max-h-[60vh] overflow-y-auto">
             <p className="text-sm text-muted-foreground">Sélectionnez votre prestation</p>
-            {filteredServices.length === 0 && <div className="p-8 text-center text-muted-foreground">Chargement des prestations...</div>}
-            {filteredServices.map((s) => (
+            {prestationsLoading && (
+              <div className="p-8 flex items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Chargement des prestations...
+              </div>
+            )}
+            {!prestationsLoading && prestationsError && (
+              <div className="p-8 text-center space-y-3">
+                <p className="text-muted-foreground text-sm">Impossible de charger les prestations.</p>
+                <Button variant="outline" onClick={loadPrestations} className="rounded-full">Réessayer</Button>
+              </div>
+            )}
+            {!prestationsLoading && !prestationsError && filteredServices.length === 0 && (
+              <div className="p-8 text-center text-muted-foreground">Aucune prestation disponible pour cette catégorie.</div>
+            )}
+            {!prestationsLoading && filteredServices.map((s) => (
               <button key={s.id} onClick={() => { setService(s.name); setStep(3); }}
                 className="w-full flex justify-between items-center rounded-xl border border-border p-4 hover:border-gold hover:bg-secondary transition text-left">
                 <div>

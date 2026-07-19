@@ -2,9 +2,10 @@ import { Button } from "@/components/ui/button";
 import { BookingDialog } from "@/components/BookingDialog";
 import { ReviewDialog } from "@/components/ReviewDialog";
 import { PressOnNailsOrder } from "@/components/PressOnNailsOrder";
+import { FormationDialog } from "@/components/FormationDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
@@ -42,6 +43,7 @@ const Index = () => {
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [galleryLoading, setGalleryLoading] = useState(true);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -64,19 +66,22 @@ const Index = () => {
       setIsAdmin(role === "admin");
 
       try {
-        const [reviewsData, prestationsData, galleryData] = await Promise.all([
+        const [reviewsData, prestationsData] = await Promise.all([
           getReviews().catch(() => []),
           getPrestations().catch(() => []),
-          getGalleryItems().catch(() => []),
         ]);
         setReviews(reviewsData);
         setPrestations(prestationsData);
-        setGallery(galleryData);
       } catch (error) {
         console.error("Data fetching error:", error);
       } finally {
         setLoading(false);
       }
+
+      getGalleryItems()
+        .then(setGallery)
+        .catch((error) => console.error("Gallery fetching error:", error))
+        .finally(() => setGalleryLoading(false));
     };
     fetchData();
   }, []);
@@ -92,6 +97,7 @@ const Index = () => {
           <div className="hidden md:flex items-center gap-8 text-sm">
             <a href="#services" className="hover:text-gold transition">Prestations</a>
             <a href="#about" className="hover:text-gold transition">À propos</a>
+            <a href="#formation" className="hover:text-gold transition">Formations</a>
             <a href="#gallery" className="hover:text-gold transition">Galerie</a>
             <a href="#contact" className="hover:text-gold transition">Contact</a>
           </div>
@@ -135,7 +141,7 @@ const Index = () => {
             <p className="text-lg text-muted-foreground mb-8 max-w-md">
               Prothésie ongulaire, brow & lash artist. Une expérience douce, élégante et sur mesure.
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap justify-start gap-3">
               <BookingDialog
                 trigger={
                   <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 shadow-elegant">
@@ -150,6 +156,15 @@ const Index = () => {
                   </Button>
                 }
               />
+              <div className="w-full flex justify-start mt-1">
+                <FormationDialog
+                  trigger={
+                    <Button size="lg" variant="outline" className="rounded-full px-8 border-gold/60 text-gold hover:bg-gold hover:text-white shadow-soft transition-all duration-300">
+                      Demander une formation <GraduationCap className="ml-2 h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
             </div>
             <div className="flex items-center gap-6 mt-10 text-sm">
               <div className="flex items-center gap-1">
@@ -293,6 +308,49 @@ const Index = () => {
         </div>
       </section>
 
+      {/* FORMATION */}
+      <section id="formation" className="py-20 bg-secondary/40">
+        <div className="container grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <span className="text-xs uppercase tracking-[0.2em] text-gold">Formations</span>
+            <h2 className="font-display text-4xl md:text-5xl mt-3 mb-6">Transmettez votre passion.</h2>
+            <p className="text-muted-foreground mb-8 leading-relaxed">
+              Vous rêvez de vous lancer dans la beauté des mains et du regard ? Je vous propose des
+              formations sur mesure en <span className="text-foreground font-medium">ongles</span> et
+              {" "}<span className="text-foreground font-medium">cils / sourcils</span>.
+              Apprenez les techniques professionnelles et repartez avec les clés de la réussite.
+            </p>
+            <ul className="space-y-4 mb-8">
+              {[
+                [GraduationCap, "Formations individuelles ou en petit groupe"],
+                [Sparkles, "Pratique encadrée et support de cours offert"],
+                [Heart, "Accompagnement et conseils pour bien démarrer"],
+              ].map(([Icon, txt]: any) => (
+                <li key={txt} className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full gradient-gold flex items-center justify-center shadow-gold shrink-0">
+                    <Icon className="h-4 w-4 text-gold-foreground" />
+                  </div>
+                  <span>{txt}</span>
+                </li>
+              ))}
+            </ul>
+            <FormationDialog
+              trigger={
+                <Button size="lg" className="bg-gold text-gold-foreground hover:bg-gold/90 rounded-full px-8 shadow-gold">
+                  <GraduationCap className="mr-2 h-4 w-4" /> Demander une formation
+                </Button>
+              }
+            />
+          </div>
+          <div className="relative">
+            <div className="absolute -inset-4 gradient-luxe rounded-[2.5rem] blur-2xl opacity-40 -z-10" />
+            <img src={browsImg} alt="Formation en beauté des mains et du regard" loading="lazy"
+              width={1024} height={1280}
+              className="rounded-[2rem] shadow-elegant w-full object-cover aspect-[4/5]" />
+          </div>
+        </div>
+      </section>
+
       {/* TESTIMONIALS */}
       <section className="py-20 bg-secondary/40">
         <div className="container">
@@ -366,7 +424,7 @@ const Index = () => {
           <h2 className="font-display text-4xl md:text-5xl mt-3">Inspirations & réalisations</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {loading ? (
+          {galleryLoading ? (
              [1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                <Skeleton key={i} className="w-full aspect-square rounded-2xl" />
              ))
@@ -429,7 +487,7 @@ const Index = () => {
           <div className="rounded-[2.5rem] gradient-luxe p-12 md:p-20 text-center shadow-elegant">
             <h2 className="font-display text-4xl md:text-5xl mb-4">Prête à vous offrir ce moment ?</h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Réservez votre séance ou commandez vos Press On Nails sur mesure en quelques clics.
+              Réservez votre séance, commandez vos Press On Nails sur mesure ou demandez une formation en quelques clics.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <BookingDialog
@@ -443,6 +501,15 @@ const Index = () => {
                 trigger={
                   <Button size="lg" variant="outline" className="border-gold text-gold hover:bg-gold hover:text-white rounded-full px-10 shadow-soft transition-all duration-300">
                     Faire une commande <ShoppingBag className="ml-2 h-4 w-4" />
+                  </Button>
+                }
+              />
+            </div>
+            <div className="flex justify-center mt-4">
+              <FormationDialog
+                trigger={
+                  <Button size="lg" variant="outline" className="border-gold text-gold hover:bg-gold hover:text-white rounded-full px-10 shadow-soft transition-all duration-300">
+                    Demander une formation <GraduationCap className="ml-2 h-4 w-4" />
                   </Button>
                 }
               />

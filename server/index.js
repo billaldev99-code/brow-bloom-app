@@ -46,6 +46,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD?.replace(/\s/g, ''), // Remove spaces from app password
   },
+  pool: true, // Réutilise les connexions SMTP (envoi beaucoup plus rapide)
+  maxConnections: 5,
+  maxMessages: 100,
 });
 
 // Verify email configuration on startup
@@ -250,6 +253,88 @@ const sendOrderConfirmationEmail = async (order) => {
     return true;
   } catch (err) {
     console.error(`❌ Error sending order email to ${order.client_email}:`, err.message);
+    return false;
+  }
+};
+
+const sendFormationEmail = async (formation, status) => {
+  try {
+    console.log(`📧 Preparing formation email for: ${formation.client_email}`);
+
+    const typeLabel = formation.type === 'ongles' ? 'Ongles' : 'Cils / Sourcils';
+    const accepted = status === 'accepted';
+
+    const decisionLine = accepted
+      ? 'Votre demande de formation a été <strong>acceptée</strong> ✅'
+      : 'Votre demande de formation a été <strong>refusée</strong> pour le moment ❌';
+
+    const emailContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 8px; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #d4af37; padding-bottom: 20px; }
+    .header h1 { color: #d4af37; margin: 0; font-size: 28px; }
+    .header p { color: #666; margin: 5px 0 0 0; font-size: 14px; }
+    .content { background-color: white; padding: 20px; border-radius: 5px; }
+    .appointment-detail { margin: 15px 0; padding: 10px; background-color: #f5f5f5; border-left: 4px solid #d4af37; }
+    .appointment-detail strong { color: #d4af37; display: block; font-size: 12px; text-transform: uppercase; }
+    .appointment-detail span { display: block; font-size: 16px; margin-top: 5px; }
+    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <p>Demande de formation</p>
+    </div>
+
+    <div class="content">
+      <p>Bonjour <strong>${formation.client_name}</strong>,</p>
+
+      <p>${decisionLine}</p>
+
+      <div class="appointment-detail">
+        <strong>💡 Domaine</strong>
+        <span>${typeLabel}</span>
+      </div>
+
+      ${formation.admin_message ? `
+      <div class="appointment-detail">
+        <strong>✉️ Message de la formatrice</strong>
+        <span>${formation.admin_message}</span>
+      </div>` : ''}
+
+      <p style="margin-top: 30px; font-style: italic; color: #666;">
+        Merci de votre intérêt pour nos formations. Pour toute question, n'hésitez pas à nous contacter.
+      </p>
+
+      <p>Encore merci de votre confiance !<br><strong>Maison Belle</strong></p>
+    </div>
+
+    <div class="footer">
+      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: formation.client_email,
+      subject: `Demande de formation ${accepted ? 'acceptée' : 'refusée'} - Maison Belle - ${typeLabel}`,
+      html: emailContent,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Formation email sent successfully to ${formation.client_email}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ Error sending formation email to ${formation.client_email}:`, err.message);
     return false;
   }
 };
@@ -627,9 +712,99 @@ app.delete('/api/items-pon/:id', verifyToken, async (req, res) => {
 app.get('/api/gallery', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM gallery ORDER BY display_order, id');
+    const base = `${req.protocol}://${req.get('host')}`;
+    const rows = result.rows.map(r => ({
+      ...r,
+      image_url: `${base}/api/gallery/${r.id}/media`,
+    }));
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve gallery media (image/video) directly as a binary HTTP response
+app.get('/api/gallery/:id/media', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT image_url FROM gallery WHERE id = $1', [req.params.id]);
+    const row = result.rows[0];
+    if (!row) return res.status(404).end();
+    const url = row.image_url;
+    const match = url.match(/^data:(.+?);base64,(.+)$/);
+    if (!match) return res.redirect(url);
+    const contentType = match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).end();
+  }
+});
+
+// FORMATIONS
+// Submit a formation request (public)
+app.post('/api/formations', async (req, res) => {
+  const { type, client_name, client_phone, client_email } = req.body;
+  if (!type || !client_name || !client_phone || !client_email) {
+    return res.status(400).json({ error: 'Tous les champs sont requis' });
+  }
+  if (!['ongles', 'cils_sourcils'].includes(type)) {
+    return res.status(400).json({ error: 'Type de formation invalide' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO formations (type, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4) RETURNING *',
+      [type, client_name, client_phone, client_email]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error submitting formation:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get all formation requests (admin)
+app.get('/api/formations', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Update formation status (admin) — sends email to requester
+app.patch('/api/formations/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { status, admin_message } = req.body;
+  if (!['accepted', 'rejected', 'pending'].includes(status)) {
+    return res.status(400).json({ error: 'Statut invalide' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE formations SET status = $1, admin_message = $2 WHERE id = $3 RETURNING *',
+      [status, admin_message || null, id]
+    );
+    const formation = result.rows[0];
+    if (formation && (status === 'accepted' || status === 'rejected')) {
+      await sendFormationEmail(formation, status);
+    }
+    res.json(formation);
+  } catch (err) {
+    console.error(`❌ Error updating formation ${id}:`, err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete formation request (admin)
+app.delete('/api/formations/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM formations WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { 
-  Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X, Star, 
-  ShoppingBag, Package, Plus, Edit2, Image as ImageIcon, LayoutGrid, List, AlertCircle, UploadCloud
+  Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X, Star,
+  ShoppingBag, Package, Plus, Edit2, Image as ImageIcon, LayoutGrid, List, AlertCircle, UploadCloud, GraduationCap
 } from "lucide-react";
 import { 
   getAppointments, 
@@ -30,7 +30,10 @@ import {
   deleteItemPON,
   getGalleryItems,
   createGalleryItem,
-  deleteGalleryItem
+  deleteGalleryItem,
+  getFormations,
+  updateFormationStatus,
+  deleteFormation
 } from "@/integrations/api";
 
 import {
@@ -114,6 +117,17 @@ interface GalleryItem {
   media_type: 'image' | 'video';
 }
 
+interface Formation {
+  id: number;
+  type: string;
+  client_name: string;
+  client_phone: string;
+  client_email: string;
+  status: string;
+  admin_message: string | null;
+  created_at: string;
+}
+
 // Helper for image compression
 const compressImage = (base64Str: string, maxWidth = 1200, maxHeight = 1200): Promise<string> => {
   if (base64Str.startsWith('data:video')) return Promise.resolve(base64Str); // Don't compress video strings here
@@ -164,7 +178,10 @@ const Admin = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [itemsPON, setItemsPON] = useState<ItemPON[]>([]);
-  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [formations, setFormations] = useState<Formation[]>([]);
+  const [deciding, setDeciding] = useState<{ id: number; status: "accepted" | "rejected" } | null>(null);
+  const [formationMsg, setFormationMsg] = useState("");
+  const [formationSubmitting, setFormationSubmitting] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
@@ -198,8 +215,8 @@ const Admin = () => {
       { name: 'reviews', fn: () => getReviewsAll(token), setter: setReviews },
       { name: 'orders', fn: () => getOrders(token), setter: setOrders },
       { name: 'prestations', fn: () => getPrestations(), setter: setPrestations },
-      { name: 'gallery', fn: () => getGalleryItems(), setter: setGallery },
       { name: 'pon', fn: () => getItemsPON(), setter: setItemsPON },
+      { name: 'formations', fn: () => getFormations(token), setter: setFormations },
     ];
 
     await Promise.all(tasks.map(async (task) => {
@@ -298,6 +315,36 @@ const Admin = () => {
     }
   };
 
+  const decideFormation = async (id: number, status: "accepted" | "rejected", adminMessage: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setFormationSubmitting(true);
+    try {
+      await updateFormationStatus(id, status, adminMessage, token);
+      toast.success(status === "accepted" ? "Demande acceptée — email envoyé" : "Demande refusée — email envoyé");
+      const data = await getFormations(token);
+      setFormations(data);
+    } catch (err) {
+      toast.error("Erreur lors de la mise à jour");
+    } finally {
+      setFormationSubmitting(false);
+    }
+  };
+
+  const removeFormation = async (id: number) => {
+    if (!confirm("Supprimer cette demande de formation ?")) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await deleteFormation(id, token);
+      toast.success("Demande supprimée");
+      const data = await getFormations(token);
+      setFormations(data);
+    } catch (err) {
+      toast.error("Erreur");
+    }
+  };
+
   const logout = async () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
@@ -344,17 +391,18 @@ const Admin = () => {
       </header>
 
       <main className="container py-8 space-y-6">
-        <div className="grid md:grid-cols-4 gap-4">
-          <Stat icon={Calendar} label="RDV à venir" value={upcoming.length} />
-          <Stat icon={ShoppingBag} label="Commandes en attente" value={orders.filter(o => o.status === "pending").length} />
-          <Stat icon={Euro} label="CA total confirmé" value={`${totalRevenue}€`} />
-          <Stat icon={Check} label="Top prestation" value={topService?.[0] || "—"} small />
-        </div>
+          <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <Stat icon={Calendar} label="RDV à venir" value={upcoming.length} />
+            <Stat icon={ShoppingBag} label="Commandes en attente" value={orders.filter(o => o.status === "pending").length} />
+            <Stat icon={GraduationCap} label="Formations en attente" value={formations.filter(f => f.status === "pending").length} />
+            <Stat icon={Euro} label="CA total confirmé" value={`${totalRevenue}€`} />
+            <Stat icon={Check} label="Top prestation" value={topService?.[0] || "—"} small />
+          </div>
 
-        {Object.keys(errors).length > 0 && (
+        {(errors.appointments || errors.orders) && (
           <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl flex items-center gap-3 text-destructive text-sm">
             <AlertCircle className="h-5 w-5" />
-            <p>Certaines sections n'ont pas pu être chargées (peut-être des images trop lourdes). Le reste fonctionne normalement.</p>
+            <p>Certaines sections essentielles n'ont pas pu être chargées. Le reste fonctionne normalement.</p>
           </div>
         )}
 
@@ -483,6 +531,81 @@ const Admin = () => {
                   ))}
                 </div>
               </Card>
+
+              {/* FORMATIONS */}
+              <Card className="overflow-hidden border-gold/20 lg:col-span-2">
+                <div className="p-4 border-b border-border bg-gold/5 flex justify-between items-center">
+                  <h2 className="font-display text-xl flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-gold" /> Demandes de formation ({formations.length})
+                  </h2>
+                </div>
+                <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+                  {formations.length === 0 && !errors.formations && (
+                    <div className="p-8 text-center text-muted-foreground text-sm">Aucune demande de formation pour l'instant.</div>
+                  )}
+                  {errors.formations && <div className="p-8 text-center text-destructive text-sm">Erreur lors du chargement des formations.</div>}
+                  {formations.map(f => {
+                          const typeLabel = f.type === "ongles" ? "Ongles" : "Cils / Sourcils";
+                    return (
+                      <div key={f.id} className="p-4 hover:bg-gold/5 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-medium">{f.client_name}</div>
+                            <div className="text-xs text-muted-foreground">{f.client_phone} · {f.client_email}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {new Date(f.created_at).toLocaleDateString("fr-FR")}
+                            </div>
+                          </div>
+                          <StatusBadge status={f.status} />
+                        </div>
+                        <div className="bg-secondary/30 rounded-lg p-3 my-2 text-sm space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Domaine :</span>
+                            <span>{typeLabel}</span>
+                          </div>
+                          {f.admin_message && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Message :</span>
+                              <span className="text-xs text-right italic max-w-[200px]">{f.admin_message}</span>
+                            </div>
+                          )}
+                        </div>
+                        {deciding?.id === f.id ? (
+                          <div className="mt-2 space-y-2">
+                            <textarea
+                              className="w-full h-20 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                              placeholder="Message optionnel envoyé au demandeur..."
+                              value={formationMsg}
+                              onChange={(e) => setFormationMsg(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" disabled={formationSubmitting} onClick={() => { decideFormation(f.id, deciding.status, formationMsg); setDeciding(null); setFormationMsg(""); }}>
+                              {formationSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-1" /> : null}
+                              Confirmer {deciding.status === "accepted" ? "l'acceptation" : "le refus"}
+                            </Button>
+                              <Button size="sm" variant="ghost" onClick={() => { setDeciding(null); setFormationMsg(""); }}>Annuler</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-1">
+                            {f.status !== "accepted" && (
+                              <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => { setDeciding({ id: f.id, status: "accepted" }); setFormationMsg(""); }}>
+                                Accepter
+                              </Button>
+                            )}
+                            {f.status !== "rejected" && (
+                              <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-700 hover:bg-red-50" onClick={() => { setDeciding({ id: f.id, status: "rejected" }); setFormationMsg(""); }}>
+                                Refuser
+                              </Button>
+                            )}
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeFormation(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
             </div>
           </TabsContent>
 
@@ -499,7 +622,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="gallery" className="m-0">
-            <GalleryManager data={gallery} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
+            <GalleryManager />
           </TabsContent>
 
           <TabsContent value="reviews" className="m-0">
@@ -791,10 +914,31 @@ const PONManager = ({ data, onRefresh }: { data: ItemPON[], onRefresh: () => voi
 };
 
 // GALLERY MANAGER
-const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: () => void }) => {
+const GalleryManager = () => {
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [glLoading, setGlLoading] = useState(true);
+  const [glError, setGlError] = useState(false);
   const [editing, setEditing] = useState<Partial<GalleryItem> | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingBatch, setUploadingBatch] = useState(false);
+
+  const loadGallery = async () => {
+    setGlLoading(true);
+    setGlError(false);
+    try {
+      const data = await getGalleryItems();
+      setItems(data);
+    } catch (err) {
+      console.error("Failed to load gallery:", err);
+      setGlError(true);
+    } finally {
+      setGlLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGallery();
+  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -808,7 +952,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     
     const reader = new FileReader();
     reader.onloadend = async () => {
-      let content = reader.result as string;
+      const content = isVideo ? (reader.result as string) : await compressImage(reader.result as string);
       setEditing(prev => ({ 
         ...prev, 
         image_url: content, 
@@ -838,7 +982,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
                         fileName.endsWith('.mov') || 
                         fileName.endsWith('.webm');
         
-        const base64 = await fileToBase64(file);
+        const base64 = isVideo ? await fileToBase64(file) : await compressImage(await fileToBase64(file));
         await createGalleryItem({ 
           image_url: base64, 
           title: "", 
@@ -853,7 +997,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     
     if (successCount > 0) {
       toast.success(`${successCount} fichier(s) ajouté(s) à la galerie !`);
-      onRefresh();
+      loadGallery();
     } else {
       toast.error("Échec de l'envoi des fichiers.");
     }
@@ -877,7 +1021,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
       await createGalleryItem(editing, token);
       toast.success("Élément ajouté");
       setEditing(null);
-      onRefresh();
+      loadGallery();
     } catch (err: any) {
       console.error("Upload error:", err);
       if (err.message?.includes("413")) {
@@ -899,7 +1043,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
     try {
       await deleteGalleryItem(id, token);
       toast.success("Élément supprimé");
-      onRefresh();
+      loadGallery();
     } catch (err) {
       toast.error("Erreur lors de la suppression");
     }
@@ -928,7 +1072,7 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
               <div className="space-y-2">
                 <Label>Fichier (Photo ou Vidéo)</Label>
                 <Input type="file" accept="image/*,video/*" onChange={handleFileUpload} className="mb-2" />
-                <p className="text-[10px] text-muted-foreground italic">Le site compresse les images, les vidéos sont gardées telles quelles.</p>
+                <p className="text-[10px] text-muted-foreground italic">Le site compresse automatiquement les images pour un chargement fiable.</p>
               </div>
               <div className="space-y-2">
                 <Label>Titre (Optionnel)</Label>
@@ -964,29 +1108,42 @@ const GalleryManager = ({ data, onRefresh }: { data: GalleryItem[], onRefresh: (
         </Card>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {data.length === 0 && !loading && (
-          <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
-            La galerie est vide. Ajoutez vos premières réalisations !
-          </div>
-        )}
-        {data.map(item => (
-          <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden shadow-soft">
-            {item.media_type === 'video' ? (
-              <video src={item.image_url} className="w-full h-full object-cover" muted loop onMouseOver={e => (e.target as HTMLVideoElement).play()} onMouseOut={e => (e.target as HTMLVideoElement).pause()} />
-            ) : (
-              <img src={item.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title || ""} />
-            )}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center">
-              {item.title && <div className="text-white text-xs font-bold mb-1">{item.title}</div>}
-              {item.media_type === 'video' && <div className="text-gold text-[10px] mb-2">Vidéo</div>}
-              <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => remove(item.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+      {glError ? (
+        <div className="col-span-full py-12 text-center text-destructive border-2 border-dashed border-destructive/30 rounded-3xl space-y-3">
+          <p>La galerie n'a pas pu être chargée (images trop lourdes ou connexion instable).</p>
+          <Button variant="outline" onClick={loadGallery}>Réessayer</Button>
+        </div>
+      ) : glLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+            <div key={i} className="aspect-square rounded-2xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {items.length === 0 && (
+            <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
+              La galerie est vide. Ajoutez vos premières réalisations !
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+          {items.map(item => (
+            <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden shadow-soft">
+              {item.media_type === 'video' ? (
+                <video src={item.image_url} className="w-full h-full object-cover" muted loop onMouseOver={e => (e.target as HTMLVideoElement).play()} onMouseOut={e => (e.target as HTMLVideoElement).pause()} />
+              ) : (
+                <img src={item.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title || ""} loading="lazy" />
+              )}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center">
+                {item.title && <div className="text-white text-xs font-bold mb-1">{item.title}</div>}
+                {item.media_type === 'video' && <div className="text-gold text-[10px] mb-2">Vidéo</div>}
+                <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => remove(item.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -1008,14 +1165,18 @@ const Stat = ({ icon: Icon, label, value, small }: any) => (
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
     pending: "bg-amber-100 text-amber-800",
+    accepted: "bg-green-100 text-green-800",
     confirmed: "bg-green-100 text-green-800",
     shipped: "bg-blue-100 text-blue-800",
+    rejected: "bg-red-100 text-red-800",
     cancelled: "bg-red-100 text-red-800",
   };
   const label: Record<string, string> = { 
     pending: "En attente", 
+    accepted: "Acceptée",
     confirmed: "Confirmé", 
     shipped: "Expédié",
+    rejected: "Refusée",
     cancelled: "Annulé" 
   };
   return <span className={`text-xs px-2 py-1 rounded-full ${map[status] || ""}`}>{label[status] || status}</span>;

@@ -251,9 +251,17 @@ export async function deleteItemPON(id: number, token: string) {
 
 // GALLERY
 export async function getGalleryItems() {
-  const res = await fetchWithTimeout(`${API_URL}/api/gallery`);
-  if (!res.ok) throw new Error('Failed to fetch gallery items');
-  return res.json();
+  let lastErr: any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetchWithTimeout(`${API_URL}/api/gallery`);
+      if (!res.ok) throw new Error('Failed to fetch gallery items');
+      return res.json();
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr;
 }
 
 export async function createGalleryItem(data: any, token: string) {
@@ -272,5 +280,52 @@ export async function deleteGalleryItem(id: number, token: string) {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete gallery item');
+  return res.json();
+}
+
+// FORMATIONS
+export async function createFormation(data: {
+  type: string;
+  client_name: string;
+  client_phone: string;
+  client_email: string;
+}) {
+  const res = await fetchWithTimeout(`${API_URL}/api/formations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('Submit formation error:', errorText);
+    throw new Error(errorText || 'Failed to submit formation request');
+  }
+  return res.json();
+}
+
+export async function getFormations(token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/formations`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch formations');
+  return res.json();
+}
+
+export async function updateFormationStatus(id: number, status: string, adminMessage: string | null, token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/formations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ status, admin_message: adminMessage }),
+  });
+  if (!res.ok) throw new Error('Failed to update formation status');
+  return res.json();
+}
+
+export async function deleteFormation(id: number, token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/formations/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to delete formation');
   return res.json();
 }
