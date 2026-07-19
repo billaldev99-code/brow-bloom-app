@@ -234,7 +234,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
                   <p className="text-sm text-muted-foreground">Sélectionnez la forme de vos Press On Nails.</p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {["Amande", "Carrée", "Carrée arrondie (Squoval)", "Coffin (Ballerine)", "Stiletto", "Ovale"].map((f) => (
+                  {["Amande", "Carrée", "Carrée arrondie", "Coffin (Ballerine)", "Stiletto", "Ovale"].map((f) => (
                     <button
                       type="button"
                       key={f}
