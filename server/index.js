@@ -29,6 +29,28 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Auto-create tables on startup
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS formations (
+        id SERIAL PRIMARY KEY,
+        type TEXT NOT NULL,
+        client_name TEXT NOT NULL,
+        client_phone TEXT NOT NULL,
+        client_email TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        admin_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
+    `);
+    console.log('✅ Formations table ready');
+  } catch (err) {
+    console.error('⚠️ Could not create formations table:', err.message);
+  }
+})();
+
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -833,6 +855,31 @@ app.post('/api/formations', async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
+    // Auto-create table if missing and retry
+    if (err.message?.includes('does not exist') || err.code === '42P01') {
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS formations (
+            id SERIAL PRIMARY KEY,
+            type TEXT NOT NULL,
+            client_name TEXT NOT NULL,
+            client_phone TEXT NOT NULL,
+            client_email TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            admin_message TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
+        `);
+        const result = await pool.query(
+          'INSERT INTO formations (type, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4) RETURNING *',
+          [type, client_name, client_phone, client_email]
+        );
+        return res.json(result.rows[0]);
+      } catch (retryErr) {
+        console.error('Retry failed for formation submission:', retryErr.message);
+      }
+    }
     console.error('Error submitting formation:', err.message);
     res.status(400).json({ error: err.message });
   }
@@ -844,6 +891,28 @@ app.get('/api/formations', verifyToken, isAdmin, async (req, res) => {
     const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
+    // Auto-create table if missing and retry
+    if (err.message?.includes('does not exist') || err.code === '42P01') {
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS formations (
+            id SERIAL PRIMARY KEY,
+            type TEXT NOT NULL,
+            client_name TEXT NOT NULL,
+            client_phone TEXT NOT NULL,
+            client_email TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            admin_message TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
+        `);
+        const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
+        return res.json(result.rows);
+      } catch (retryErr) {
+        console.error('Retry failed for formations:', retryErr.message);
+      }
+    }
     res.status(500).json({ error: err.message });
   }
 });
