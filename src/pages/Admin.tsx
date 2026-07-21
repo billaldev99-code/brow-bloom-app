@@ -183,7 +183,7 @@ const Admin = () => {
   const [formationMsg, setFormationMsg] = useState("");
   const [formationSubmitting, setFormationSubmitting] = useState(false);
 
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string | boolean>>({});
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -224,8 +224,9 @@ const Admin = () => {
         const data = await task.fn();
         task.setter(data);
       } catch (err) {
-        console.error(`Failed to load ${task.name}:`, err);
-        setErrors(prev => ({ ...prev, [task.name]: true }));
+        const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error(`Failed to load ${task.name}:`, msg);
+        setErrors(prev => ({ ...prev, [task.name]: msg }));
         if (['appointments', 'orders'].includes(task.name)) {
           toast.error(`Erreur de chargement des ${task.name}`);
         }
@@ -543,7 +544,14 @@ const Admin = () => {
                   {formations.length === 0 && !errors.formations && (
                     <div className="p-8 text-center text-muted-foreground text-sm">Aucune demande de formation pour l'instant.</div>
                   )}
-                  {errors.formations && <div className="p-8 text-center text-destructive text-sm">Erreur lors du chargement des formations.</div>}
+                  {errors.formations && (
+                    <div className="p-8 text-center">
+                      <div className="text-destructive text-sm">Erreur lors du chargement des formations.</div>
+                      {typeof errors.formations === 'string' && (
+                        <div className="text-muted-foreground text-xs mt-1 italic">{errors.formations}</div>
+                      )}
+                    </div>
+                  )}
                   {formations.map(f => {
                           const typeLabel = f.type === "ongles" ? "Ongles" : "Cils / Sourcils";
                     return (

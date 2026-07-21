@@ -838,6 +838,27 @@ app.get('/api/gallery/:id/media', async (req, res) => {
   }
 });
 
+// Shared helper to ensure the formations table exists
+async function ensureFormationsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS formations (
+        id SERIAL PRIMARY KEY,
+        type TEXT NOT NULL,
+        client_name TEXT NOT NULL,
+        client_phone TEXT NOT NULL,
+        client_email TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        admin_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
+    `);
+  } catch (err) {
+    console.error('⚠️ ensureFormationsTable failed:', err.message);
+  }
+}
+
 // FORMATIONS
 // Submit a formation request (public)
 app.post('/api/formations', async (req, res) => {
@@ -849,37 +870,13 @@ app.post('/api/formations', async (req, res) => {
     return res.status(400).json({ error: 'Type de formation invalide' });
   }
   try {
+    await ensureFormationsTable();
     const result = await pool.query(
       'INSERT INTO formations (type, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4) RETURNING *',
       [type, client_name, client_phone, client_email]
     );
     res.json(result.rows[0]);
   } catch (err) {
-    // Auto-create table if missing and retry
-    if (err.message?.includes('does not exist') || err.code === '42P01') {
-      try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS formations (
-            id SERIAL PRIMARY KEY,
-            type TEXT NOT NULL,
-            client_name TEXT NOT NULL,
-            client_phone TEXT NOT NULL,
-            client_email TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
-            admin_message TEXT,
-            created_at TIMESTAMP DEFAULT NOW()
-          );
-          CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
-        `);
-        const result = await pool.query(
-          'INSERT INTO formations (type, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4) RETURNING *',
-          [type, client_name, client_phone, client_email]
-        );
-        return res.json(result.rows[0]);
-      } catch (retryErr) {
-        console.error('Retry failed for formation submission:', retryErr.message);
-      }
-    }
     console.error('Error submitting formation:', err.message);
     res.status(400).json({ error: err.message });
   }
@@ -888,31 +885,11 @@ app.post('/api/formations', async (req, res) => {
 // Get all formation requests (admin)
 app.get('/api/formations', verifyToken, isAdmin, async (req, res) => {
   try {
+    await ensureFormationsTable();
     const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
-    // Auto-create table if missing and retry
-    if (err.message?.includes('does not exist') || err.code === '42P01') {
-      try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS formations (
-            id SERIAL PRIMARY KEY,
-            type TEXT NOT NULL,
-            client_name TEXT NOT NULL,
-            client_phone TEXT NOT NULL,
-            client_email TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
-            admin_message TEXT,
-            created_at TIMESTAMP DEFAULT NOW()
-          );
-          CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
-        `);
-        const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
-        return res.json(result.rows);
-      } catch (retryErr) {
-        console.error('Retry failed for formations:', retryErr.message);
-      }
-    }
+    console.error('Error loading formations:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -925,6 +902,7 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Statut invalide' });
   }
   try {
+    await ensureFormationsTable();
     const result = await pool.query(
       'UPDATE formations SET status = $1, admin_message = $2 WHERE id = $3 RETURNING *',
       [status, admin_message || null, id]
@@ -944,6 +922,7 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
 app.delete('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
+    await ensureFormationsTable();
     await pool.query('DELETE FROM formations WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
