@@ -1270,15 +1270,15 @@ const StatsDashboard = ({ appointments, orders, prestations }: { appointments: a
         {/* DISTRIBUTION CHART */}
         <Card className="p-6">
           <h3 className="font-display text-lg mb-6">Top Prestations (Salon)</h3>
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={pieData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  cy="45%"
+                  innerRadius={55}
+                  outerRadius={90}
                   paddingAngle={5}
                   dataKey="value"
                 >
@@ -1287,9 +1287,20 @@ const StatsDashboard = ({ appointments, orders, prestations }: { appointments: a
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 justify-center">
+            {pieData.map((entry, index) => (
+              <div key={index} className="flex items-center gap-1.5 text-xs">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <span className="text-muted-foreground truncate max-w-[120px]">{entry.name}</span>
+                <span className="font-medium">({entry.value})</span>
+              </div>
+            ))}
           </div>
         </Card>
 
