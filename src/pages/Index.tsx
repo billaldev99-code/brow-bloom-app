@@ -8,7 +8,7 @@ import {
   MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,6 +76,7 @@ const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);
+  const touchStartX = useRef(0);
 
   useEffect(() => {
     if (!lightboxItem) return;
@@ -581,7 +582,19 @@ const Index = () => {
               </button>
             )}
 
-            <div className="max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="max-w-4xl w-full max-h-[90vh] flex flex-col items-center"
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => {
+                if (!hasNav) return;
+                const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+                if (Math.abs(deltaX) > 50) {
+                  if (deltaX > 0) setLightboxItem(prev);
+                  else setLightboxItem(next);
+                }
+              }}
+            >
               {hasNav && (
                 <div className="text-white/60 text-sm mb-3">
                   {idx + 1} / {gallery.length}
