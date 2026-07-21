@@ -51,6 +51,15 @@ const transporter = nodemailer.createTransport({
   maxMessages: 100,
 });
 
+// WhatsApp Cloud API (Meta) configuration
+console.log('📱 WhatsApp Configuration:');
+console.log(`  META_WHATSAPP_TOKEN: ${process.env.META_WHATSAPP_TOKEN ? '✓ (set)' : '✗ (NOT SET)'}`);
+console.log(`  META_WHATSAPP_PHONE_NUMBER_ID: ${process.env.META_WHATSAPP_PHONE_NUMBER_ID ? '✓ (set)' : '✗ (NOT SET)'}`);
+
+const META_API_VERSION = 'v22.0';
+const META_WHATSAPP_TOKEN = process.env.META_WHATSAPP_TOKEN || null;
+const META_WHATSAPP_PHONE_NUMBER_ID = process.env.META_WHATSAPP_PHONE_NUMBER_ID || null;
+
 // Verify email configuration on startup
 transporter.verify((err, success) => {
   if (err) {
@@ -149,6 +158,72 @@ const sendConfirmationEmail = async (appointment) => {
     return true;
   } catch (err) {
     console.error(`❌ Error sending email to ${appointment.client_email}:`, err.message);
+    return false;
+  }
+};
+
+// Function to send WhatsApp confirmation via Meta Cloud API
+const sendWhatsAppConfirmation = async (appointment) => {
+  if (!META_WHATSAPP_TOKEN || !META_WHATSAPP_PHONE_NUMBER_ID) {
+    console.log('⚠️ WhatsApp non configuré (Meta Cloud API manquante)');
+    return false;
+  }
+
+  try {
+    console.log(`📱 Preparing WhatsApp for: ${appointment.client_phone}`);
+
+    const formattedDate = new Date(appointment.appointment_date).toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    let phone = appointment.client_phone.trim();
+    phone = phone.replace(/[^\d+]/g, '');
+    if (phone.startsWith('+')) {
+      phone = phone.slice(1);
+    }
+
+    const messageBody = `Bonjour ${appointment.client_name} ! ✅
+
+Votre rendez-vous chez *Maison Belle* a été confirmé !
+
+📅 *Date :* ${formattedDate}
+🕐 *Heure :* ${appointment.appointment_time}
+💄 *Prestation :* ${appointment.service}
+🏷️ *Catégorie :* ${appointment.category}
+
+📍 *Adresse :* Cité 1045 logts, Bat 48, N° 08, Bordj Bou Arreridj
+
+Merci de votre confiance et à bientôt ! ✨`;
+
+    const response = await fetch(
+      `https://graph.facebook.com/${META_API_VERSION}/${META_WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${META_WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phone,
+          type: 'text',
+          text: { body: messageBody },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    }
+
+    console.log(`✅ WhatsApp sent successfully to +${phone}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ Error sending WhatsApp to ${appointment.client_phone}:`, err.message);
     return false;
   }
 };
@@ -459,10 +534,13 @@ app.patch('/api/appointments/:id', verifyToken, async (req, res) => {
     
     const appointment = result.rows[0];
     
-    // Send confirmation email if status changed to confirmed
+    // Send confirmation email + WhatsApp if status changed to confirmed
     if (status === 'confirmed') {
-      console.log(`📬 Sending confirmation email for appointment ${id}...`);
-      await sendConfirmationEmail(appointment);
+      console.log(`📬 Sending confirmations for appointment ${id}...`);
+      await Promise.all([
+        sendConfirmationEmail(appointment),
+        sendWhatsAppConfirmation(appointment),
+      ]);
     }
     
     res.json(appointment);
@@ -711,10 +789,14 @@ app.delete('/api/items-pon/:id', verifyToken, async (req, res) => {
 // GALLERY
 app.get('/api/gallery', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM gallery ORDER BY display_order, id');
+    const result = await pool.query('SELECT id, title, description, display_order, media_type FROM gallery ORDER BY display_order, id');
     const base = `${req.protocol}://${req.get('host')}`;
     const rows = result.rows.map(r => ({
-      ...r,
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      display_order: r.display_order,
+      media_type: r.media_type,
       image_url: `${base}/api/gallery/${r.id}/media`,
     }));
     res.json(rows);

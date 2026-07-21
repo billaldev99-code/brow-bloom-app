@@ -251,17 +251,14 @@ export async function deleteItemPON(id: number, token: string) {
 
 // GALLERY
 export async function getGalleryItems() {
-  let lastErr: any;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetchWithTimeout(`${API_URL}/api/gallery`);
-      if (!res.ok) throw new Error('Failed to fetch gallery items');
-      return res.json();
-    } catch (err) {
-      lastErr = err;
-    }
+  try {
+    const res = await fetchWithTimeout(`${API_URL}/api/gallery`, {}, 15000);
+    if (!res.ok) throw new Error('Failed to fetch gallery items');
+    return res.json();
+  } catch (err) {
+    console.error('Gallery fetch failed:', err);
+    throw err;
   }
-  throw lastErr;
 }
 
 export async function createGalleryItem(data: any, token: string) {

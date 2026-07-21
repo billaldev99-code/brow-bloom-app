@@ -5,7 +5,7 @@ import { PressOnNailsOrder } from "@/components/PressOnNailsOrder";
 import { FormationDialog } from "@/components/FormationDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState } from "react";
@@ -37,10 +37,25 @@ interface GalleryItem {
   media_type: 'image' | 'video';
 }
 
+const FALLBACK_PRESTATIONS: Prestation[] = [
+  { id: 1, category: "ongles", name: "Gel sur ongles naturels", duration: "45 min", price: "35€" },
+  { id: 2, category: "ongles", name: "Capsules gel", duration: "1h", price: "45€" },
+  { id: 3, category: "ongles", name: "Vernis semi-permanent", duration: "30 min", price: "25€" },
+  { id: 4, category: "ongles", name: "Nail art", duration: "+15 min", price: "+5€" },
+  { id: 5, category: "sourcils", name: "Restructuration", duration: "30 min", price: "25€" },
+  { id: 6, category: "sourcils", name: "Brow lift", duration: "45 min", price: "40€" },
+  { id: 7, category: "sourcils", name: "Teinture sourcils", duration: "15 min", price: "15€" },
+  { id: 8, category: "cils", name: "Rehaussement de cils", duration: "45 min", price: "40€" },
+  { id: 9, category: "cils", name: "Extensions de cils", duration: "1h30", price: "55€" },
+  { id: 10, category: "cils", name: "Teinture cils", duration: "15 min", price: "12€" },
+  { id: 11, category: "press on nails", name: "Set press on nails", duration: "sur mesure", price: "35€" },
+  { id: 12, category: "press on nails", name: "Réutilisation set", duration: "livraison", price: "15€" },
+];
+
 const Index = () => {
   const navigate = useNavigate();
   const [reviews, setReviews] = useState<any[]>([]);
-  const [prestations, setPrestations] = useState<Prestation[]>([]);
+  const [prestations, setPrestations] = useState<Prestation[]>(FALLBACK_PRESTATIONS);
   const [gallery, setGallery] = useState<GalleryItem[]>(() => {
     try {
       const cached = localStorage.getItem("galleryCache");
@@ -64,10 +79,22 @@ const Index = () => {
 
   useEffect(() => {
     if (!lightboxItem) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxItem(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setLightboxItem(null); return; }
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const idx = gallery.findIndex(item => item.id === lightboxItem.id);
+      if (idx === -1 || gallery.length <= 1) return;
+      if (e.key === "ArrowLeft") {
+        const prev = idx > 0 ? gallery[idx - 1] : gallery[gallery.length - 1];
+        setLightboxItem(prev);
+      } else {
+        const next = idx < gallery.length - 1 ? gallery[idx + 1] : gallery[0];
+        setLightboxItem(next);
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxItem]);
+  }, [lightboxItem, gallery]);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -92,7 +119,7 @@ const Index = () => {
           getPrestations().catch(() => []),
         ]);
         setReviews(reviewsData);
-        setPrestations(prestationsData);
+        if (prestationsData.length > 0) setPrestations(prestationsData);
       } catch (error) {
         console.error("Data fetching error:", error);
       } finally {
@@ -511,49 +538,83 @@ const Index = () => {
       </section>
 
       {/* LIGHTBOX */}
-      {lightboxItem && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setLightboxItem(null)}
-        >
-          <button
+      {lightboxItem && (() => {
+        const idx = gallery.findIndex(item => item.id === lightboxItem.id);
+        const hasNav = gallery.length > 1 && idx !== -1;
+        const prev = hasNav ? (idx > 0 ? gallery[idx - 1] : gallery[gallery.length - 1]) : null;
+        const next = hasNav ? (idx < gallery.length - 1 ? gallery[idx + 1] : gallery[0]) : null;
+        const isVideo = lightboxItem.media_type === 'video' ||
+          lightboxItem.image_url.startsWith('data:video') ||
+          lightboxItem.image_url.endsWith('.mp4') ||
+          lightboxItem.image_url.endsWith('.mov');
+
+        return (
+          <div
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setLightboxItem(null)}
-            aria-label="Fermer"
-            className="absolute top-5 right-5 text-white/80 hover:text-white transition"
           >
-            <X className="h-8 w-8" />
-          </button>
-          <div className="max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            {(lightboxItem.media_type === 'video' ||
-              lightboxItem.image_url.startsWith('data:video') ||
-              lightboxItem.image_url.endsWith('.mp4') ||
-              lightboxItem.image_url.endsWith('.mov')) ? (
-              <video
-                src={lightboxItem.image_url}
-                className="max-w-full max-h-[85vh] rounded-2xl"
-                controls
-                autoPlay
-                loop
-                playsInline
-              />
-            ) : (
-              <img
-                src={lightboxItem.image_url}
-                alt={lightboxItem.title || "Réalisation"}
-                className="max-w-full max-h-[85vh] object-contain rounded-2xl"
-              />
+            <button
+              onClick={() => setLightboxItem(null)}
+              aria-label="Fermer"
+              className="absolute top-5 right-5 text-white/80 hover:text-white transition z-10"
+            >
+              <X className="h-8 w-8" />
+            </button>
+
+            {hasNav && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setLightboxItem(prev); }}
+                aria-label="Précédente"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition p-2 z-10"
+              >
+                <ChevronLeft className="h-10 w-10" />
+              </button>
             )}
-            {lightboxItem.title && (
-              <div className="text-center text-white mt-4">
-                <div className="font-display text-xl">{lightboxItem.title}</div>
-                {lightboxItem.description && (
-                  <div className="text-sm opacity-80">{lightboxItem.description}</div>
-                )}
-              </div>
+
+            {hasNav && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setLightboxItem(next); }}
+                aria-label="Suivante"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition p-2 z-10"
+              >
+                <ChevronRight className="h-10 w-10" />
+              </button>
             )}
+
+            <div className="max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+              {hasNav && (
+                <div className="text-white/60 text-sm mb-3">
+                  {idx + 1} / {gallery.length}
+                </div>
+              )}
+              {isVideo ? (
+                <video
+                  src={lightboxItem.image_url}
+                  className="max-w-full max-h-[85vh] rounded-2xl"
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={lightboxItem.image_url}
+                  alt={lightboxItem.title || "Réalisation"}
+                  className="max-w-full max-h-[85vh] object-contain rounded-2xl"
+                />
+              )}
+              {lightboxItem.title && (
+                <div className="text-center text-white mt-4">
+                  <div className="font-display text-xl">{lightboxItem.title}</div>
+                  {lightboxItem.description && (
+                    <div className="text-sm opacity-80">{lightboxItem.description}</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* CTA */}
       <section className="py-20">
@@ -619,7 +680,7 @@ const Index = () => {
                   <span>@maisonbelle</span>
                 </div>
               </a>
-              <Info icon={Clock} label="Ouvert du samedi au jeudi" />
+              <Info icon={Clock} label="Ouvert tous les jours" />
             </div>
           </div>
           <div className="rounded-3xl overflow-hidden shadow-soft min-h-[300px] bg-muted">
