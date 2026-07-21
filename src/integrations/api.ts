@@ -304,7 +304,10 @@ export async function getFormations(token: string) {
   const res = await fetchWithTimeout(`${API_URL}/api/formations`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('Failed to fetch formations');
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Failed to fetch formations (${res.status}): ${body.slice(0, 200)}`);
+  }
   return res.json();
 }
 
