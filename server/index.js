@@ -29,14 +29,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Debug: Log email configuration
-console.log('📧 Email Configuration:');
-console.log(`  HOST: ${process.env.EMAIL_HOST}`);
-console.log(`  PORT: ${process.env.EMAIL_PORT}`);
-console.log(`  USER: ${process.env.EMAIL_USER}`);
-console.log(`  FROM: ${process.env.EMAIL_FROM}`);
-console.log(`  PASSWORD: ${process.env.EMAIL_PASSWORD ? '✓ (set)' : '✗ (NOT SET)'}`);
-
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -495,7 +487,7 @@ app.get('/api/booked-slots', async (req, res) => {
 });
 
 // Get appointments
-app.get('/api/appointments', verifyToken, async (req, res) => {
+app.get('/api/appointments', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM appointments ORDER BY appointment_date, appointment_time'
@@ -521,7 +513,7 @@ app.post('/api/appointments', async (req, res) => {
 });
 
 // Update appointment status
-app.patch('/api/appointments/:id', verifyToken, async (req, res) => {
+app.patch('/api/appointments/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
@@ -551,7 +543,7 @@ app.patch('/api/appointments/:id', verifyToken, async (req, res) => {
 });
 
 // Delete appointment
-app.delete('/api/appointments/:id', verifyToken, async (req, res) => {
+app.delete('/api/appointments/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM appointments WHERE id = $1', [id]);
@@ -595,7 +587,7 @@ app.post('/api/reviews', async (req, res) => {
 });
 
 // Get all reviews (admin)
-app.get('/api/reviews/all', verifyToken, async (req, res) => {
+app.get('/api/reviews/all', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT * FROM reviews ORDER BY created_at DESC'
@@ -607,7 +599,7 @@ app.get('/api/reviews/all', verifyToken, async (req, res) => {
 });
 
 // Update review status (admin)
-app.patch('/api/reviews/:id', verifyToken, async (req, res) => {
+app.patch('/api/reviews/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { approved } = req.body;
   try {
@@ -622,7 +614,7 @@ app.patch('/api/reviews/:id', verifyToken, async (req, res) => {
 });
 
 // Delete review (admin)
-app.delete('/api/reviews/:id', verifyToken, async (req, res) => {
+app.delete('/api/reviews/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM reviews WHERE id = $1', [id]);
@@ -633,7 +625,7 @@ app.delete('/api/reviews/:id', verifyToken, async (req, res) => {
 });
 
 // Get orders (admin)
-app.get('/api/orders', verifyToken, async (req, res) => {
+app.get('/api/orders', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
     res.json(result.rows);
@@ -678,7 +670,7 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // Update order status (admin)
-app.patch('/api/orders/:id', verifyToken, async (req, res) => {
+app.patch('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   try {
@@ -702,7 +694,7 @@ app.get('/api/prestations', async (req, res) => {
   }
 });
 
-app.post('/api/prestations', verifyToken, async (req, res) => {
+app.post('/api/prestations', verifyToken, isAdmin, async (req, res) => {
   const { category, name, duration, price } = req.body;
   try {
     const result = await pool.query(
@@ -715,7 +707,7 @@ app.post('/api/prestations', verifyToken, async (req, res) => {
   }
 });
 
-app.put('/api/prestations/:id', verifyToken, async (req, res) => {
+app.put('/api/prestations/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { category, name, duration, price } = req.body;
   try {
@@ -729,7 +721,7 @@ app.put('/api/prestations/:id', verifyToken, async (req, res) => {
   }
 });
 
-app.delete('/api/prestations/:id', verifyToken, async (req, res) => {
+app.delete('/api/prestations/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM prestations WHERE id = $1', [id]);
@@ -749,7 +741,7 @@ app.get('/api/items-pon', async (req, res) => {
   }
 });
 
-app.post('/api/items-pon', verifyToken, async (req, res) => {
+app.post('/api/items-pon', verifyToken, isAdmin, async (req, res) => {
   const { name, description, price, image_url } = req.body;
   try {
     const result = await pool.query(
@@ -762,7 +754,7 @@ app.post('/api/items-pon', verifyToken, async (req, res) => {
   }
 });
 
-app.put('/api/items-pon/:id', verifyToken, async (req, res) => {
+app.put('/api/items-pon/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { name, description, price, image_url } = req.body;
   try {
@@ -776,7 +768,7 @@ app.put('/api/items-pon/:id', verifyToken, async (req, res) => {
   }
 });
 
-app.delete('/api/items-pon/:id', verifyToken, async (req, res) => {
+app.delete('/api/items-pon/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM items_pon WHERE id = $1', [id]);
@@ -847,7 +839,7 @@ app.post('/api/formations', async (req, res) => {
 });
 
 // Get all formation requests (admin)
-app.get('/api/formations', verifyToken, async (req, res) => {
+app.get('/api/formations', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
     res.json(result.rows);
@@ -857,7 +849,7 @@ app.get('/api/formations', verifyToken, async (req, res) => {
 });
 
 // Update formation status (admin) — sends email to requester
-app.patch('/api/formations/:id', verifyToken, async (req, res) => {
+app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { status, admin_message } = req.body;
   if (!['accepted', 'rejected', 'pending'].includes(status)) {
@@ -880,7 +872,7 @@ app.patch('/api/formations/:id', verifyToken, async (req, res) => {
 });
 
 // Delete formation request (admin)
-app.delete('/api/formations/:id', verifyToken, async (req, res) => {
+app.delete('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM formations WHERE id = $1', [id]);
@@ -890,7 +882,7 @@ app.delete('/api/formations/:id', verifyToken, async (req, res) => {
   }
 });
 
-app.post('/api/gallery', verifyToken, async (req, res) => {
+app.post('/api/gallery', verifyToken, isAdmin, async (req, res) => {
   const { image_url, title, description, display_order, media_type } = req.body;
   try {
     const result = await pool.query(
@@ -903,7 +895,7 @@ app.post('/api/gallery', verifyToken, async (req, res) => {
   }
 });
 
-app.delete('/api/gallery/:id', verifyToken, async (req, res) => {
+app.delete('/api/gallery/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM gallery WHERE id = $1', [id]);
@@ -914,6 +906,6 @@ app.delete('/api/gallery/:id', verifyToken, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
