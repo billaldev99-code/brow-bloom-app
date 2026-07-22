@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { 
   Loader2, Calendar, Users, Euro, LogOut, Trash2, Check, X, Star,
-  ShoppingBag, Package, Plus, Edit2, Image as ImageIcon, LayoutGrid, List, AlertCircle, UploadCloud, GraduationCap
+  ShoppingBag, Package, Plus, Edit2, Image as ImageIcon, LayoutGrid, List, AlertCircle, UploadCloud, GraduationCap,
+  Camera, Filter, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { 
   getAppointments, 
@@ -20,6 +21,7 @@ import {
   deleteReview,
   getOrders,
   updateOrderStatus,
+  deleteOrder,
   getPrestations,
   createPrestation,
   updatePrestation,
@@ -33,7 +35,11 @@ import {
   deleteGalleryItem,
   getFormations,
   updateFormationStatus,
-  deleteFormation
+  deleteFormation,
+  getAllClientPhotos,
+  updateClientPhoto,
+  deleteClientPhoto,
+  ClientPhoto
 } from "@/integrations/api";
 
 import {
@@ -276,6 +282,34 @@ const Admin = () => {
     }
   };
 
+  const deletePendingAppointments = async () => {
+    const pending = appointments.filter(a => a.status === "pending");
+    if (pending.length === 0) { toast.info("Aucun rendez-vous en attente"); return; }
+    if (!confirm(`Supprimer les ${pending.length} rendez-vous en attente ?`)) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    for (const a of pending) {
+      try { await deleteAppointment(a.id, token); } catch {}
+    }
+    toast.success(`${pending.length} rendez-vous supprimés`);
+    const data = await getAppointments(token);
+    setAppointments(data);
+  };
+
+  const deletePendingOrders = async () => {
+    const pending = orders.filter(o => o.status === "pending");
+    if (pending.length === 0) { toast.info("Aucune commande en attente"); return; }
+    if (!confirm(`Supprimer les ${pending.length} commandes en attente ?`)) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    for (const o of pending) {
+      try { await deleteOrder(o.id, token); } catch {}
+    }
+    toast.success(`${pending.length} commandes supprimées`);
+    const data = await getOrders(token);
+    setOrders(data);
+  };
+
   const approveReview = async (id: string) => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -415,6 +449,7 @@ const Admin = () => {
             <TabsTrigger value="pon" className="rounded-lg py-2">Press On Nails</TabsTrigger>
             <TabsTrigger value="gallery" className="rounded-lg py-2">Galerie</TabsTrigger>
             <TabsTrigger value="reviews" className="rounded-lg py-2">Avis Clients</TabsTrigger>
+            <TabsTrigger value="client-photos" className="rounded-lg py-2">Retours Photos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6 m-0">
@@ -425,6 +460,12 @@ const Admin = () => {
                   <h2 className="font-display text-xl flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-gold" /> Rendez-vous ({appointments.length})
                   </h2>
+                  {appointments.filter(a => a.status === "pending").length > 0 && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive"
+                      onClick={deletePendingAppointments}>
+                      <Trash2 className="h-3 w-3 mr-1" />Tout supprimer
+                    </Button>
+                  )}
                 </div>
                 <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
                   {appointments.length === 0 && !errors.appointments && (
@@ -472,6 +513,12 @@ const Admin = () => {
                   <h2 className="font-display text-xl flex items-center gap-2">
                     <ShoppingBag className="h-5 w-5 text-gold" /> Commandes PON ({orders.length})
                   </h2>
+                  {orders.filter(o => o.status === "pending").length > 0 && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive"
+                      onClick={deletePendingOrders}>
+                      <Trash2 className="h-3 w-3 mr-1" />Tout supprimer
+                    </Button>
+                  )}
                 </div>
                 <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
                   {orders.length === 0 && !errors.orders && (
@@ -503,7 +550,7 @@ const Admin = () => {
                         </div>
                         <div className="flex justify-between font-bold border-t border-border mt-1 pt-1">
                           <span>Total :</span>
-                          <span className="text-gold">{o.total_price}€</span>
+                          <span className="text-gold">{Number(o.total_price).toLocaleString("fr-FR")} DA</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center mt-2">
@@ -674,6 +721,10 @@ const Admin = () => {
                 ))}
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="client-photos" className="m-0">
+            <ClientPhotoManager />
           </TabsContent>
         </Tabs>
       </main>
@@ -1342,6 +1393,198 @@ const ReviewStatusBadge = ({ approved }: { approved: boolean }) => {
     <span className={`text-xs px-2 py-1 rounded-full ${approved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
       {approved ? "Approuvé" : "En attente"}
     </span>
+  );
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  approved: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+};
+const STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  approved: "Publié",
+  rejected: "Refusé",
+};
+
+const ClientPhotoManager = () => {
+  const [items, setItems] = useState<ClientPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<string>("all");
+  const [lightbox, setLightbox] = useState<{ photos: string[]; idx: number } | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editMessage, setEditMessage] = useState("");
+  const [saving, setSaving] = useState<number | null>(null);
+
+  const token = localStorage.getItem("token")!;
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllClientPhotos(token);
+      setItems(data);
+    } catch {
+      toast.error("Erreur de chargement des retours photos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filtered = filter === "all" ? items : items.filter(i => i.status === filter);
+
+  const handleAction = async (id: number, data: { status?: string; message?: string | null }) => {
+    setSaving(id);
+    try {
+      await updateClientPhoto(id, data, token);
+      setItems(prev => prev.map(i => i.id === id ? { ...i, ...data } as ClientPhoto : i));
+      toast.success("Mise à jour effectuée");
+      setEditingId(null);
+    } catch {
+      toast.error("Erreur lors de la mise à jour");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Supprimer ce retour ?")) return;
+    setSaving(id);
+    try {
+      await deleteClientPhoto(id, token);
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.success("Supprimé");
+    } catch {
+      toast.error("Erreur lors de la suppression");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-xl flex items-center gap-2">
+          <Camera className="h-5 w-5 text-gold" /> Retours en images ({items.length})
+        </h2>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          {["all", "pending", "approved", "rejected"].map(s => (
+            <button key={s} onClick={() => setFilter(s)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition ${
+                filter === s ? "bg-gold text-gold-foreground border-gold" : "border-border text-muted-foreground hover:border-gold"
+              }`}>
+              {s === "all" ? "Tous" : STATUS_LABELS[s]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+        {loading ? (
+          <div className="p-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-gold" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground text-sm">Aucun retour trouvé.</div>
+        ) : filtered.map(item => (
+          <div key={item.id} className="p-4 hover:bg-secondary/30 transition-colors">
+            <div className="flex flex-wrap gap-4">
+              {/* Thumbnails */}
+              <div className="flex gap-1.5 shrink-0">
+                {item.photos.slice(0, 4).map((photo, i) => (
+                  <button key={i} onClick={() => setLightbox({ photos: item.photos, idx: i })}
+                    className="w-16 h-16 rounded-lg overflow-hidden border border-border hover:border-gold transition">
+                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-[200px] space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium">{item.first_name} {item.last_name}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[item.status] || ""}`}>
+                    {STATUS_LABELS[item.status] || item.status}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(item.created_at).toLocaleDateString("fr-FR")}
+                  </span>
+                </div>
+                <div className="text-xs text-gold font-medium">{item.prestation_type}</div>
+                {editingId === item.id ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input value={editMessage} onChange={e => setEditMessage(e.target.value)}
+                      className="h-8 text-xs flex-1" placeholder="Modifier le message..." />
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingId(null)}>Annuler</Button>
+                    <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => handleAction(item.id, { message: editMessage || null })}>
+                      {saving === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "OK"}
+                    </Button>
+                  </div>
+                ) : item.message ? (
+                  <p className="text-xs text-muted-foreground italic">« {item.message} »</p>
+                ) : null}
+
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {item.status !== "approved" && (
+                    <Button size="sm" variant="outline" className="h-7 text-[11px] border-green-200 text-green-700 hover:bg-green-50"
+                      disabled={saving === item.id} onClick={() => handleAction(item.id, { status: "approved" })}>
+                      {saving === item.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                      Publier
+                    </Button>
+                  )}
+                  {item.status !== "rejected" && (
+                    <Button size="sm" variant="outline" className="h-7 text-[11px] border-red-200 text-red-700 hover:bg-red-50"
+                      disabled={saving === item.id} onClick={() => handleAction(item.id, { status: "rejected" })}>
+                      Refuser
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="h-7 text-[11px]"
+                    onClick={() => { setEditingId(item.id); setEditMessage(item.message || ""); }}>
+                    Modifier le message
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                    disabled={saving === item.id} onClick={() => handleDelete(item.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)}
+            className="absolute top-5 right-5 text-white/80 hover:text-white z-10">
+            <X className="h-8 w-8" />
+          </button>
+          {lightbox.photos.length > 1 && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); setLightbox(l => l ? { ...l, idx: l.idx > 0 ? l.idx - 1 : l.photos.length - 1 } : null); }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-2 z-10">
+                <ChevronLeft className="h-10 w-10" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setLightbox(l => l ? { ...l, idx: l.idx < l.photos.length - 1 ? l.idx + 1 : 0 } : null); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-2 z-10">
+                <ChevronRight className="h-10 w-10" />
+              </button>
+            </>
+          )}
+          <div className="max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            {lightbox.photos.length > 1 && (
+              <div className="text-white/60 text-sm mb-3">{lightbox.idx + 1} / {lightbox.photos.length}</div>
+            )}
+            <img src={lightbox.photos[lightbox.idx]} alt=""
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl" />
+          </div>
+        </div>
+      )}
+    </Card>
   );
 };
 

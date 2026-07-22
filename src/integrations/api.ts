@@ -178,6 +178,15 @@ export async function updateOrderStatus(id: number, status: string, token: strin
 }
 
 // PRESTATIONS
+export async function deleteOrder(id: number, token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/orders/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to delete order');
+  return res.json();
+}
+
 export async function getPrestations() {
   const res = await fetchWithTimeout(`${API_URL}/api/prestations`);
   if (!res.ok) throw new Error('Failed to fetch prestations');
@@ -327,5 +336,69 @@ export async function deleteFormation(id: number, token: string) {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete formation');
+  return res.json();
+}
+
+// CLIENT PHOTOS (Vos retours en images)
+export interface ClientPhoto {
+  id: number;
+  first_name: string;
+  last_name: string;
+  prestation_type: string;
+  message: string | null;
+  photos: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+}
+
+export async function submitClientPhoto(data: {
+  first_name: string;
+  last_name: string;
+  prestation_type: string;
+  message?: string;
+  photos: string[];
+}) {
+  const res = await fetchWithTimeout(`${API_URL}/api/client-photos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Erreur (${res.status}): ${body.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+export async function getApprovedClientPhotos() {
+  const res = await fetchWithTimeout(`${API_URL}/api/client-photos/approved`);
+  if (!res.ok) throw new Error('Failed to fetch approved photos');
+  return res.json() as Promise<ClientPhoto[]>;
+}
+
+export async function getAllClientPhotos(token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/client-photos`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch client photos');
+  return res.json() as Promise<ClientPhoto[]>;
+}
+
+export async function updateClientPhoto(id: number, data: { status?: string; message?: string | null }, token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/client-photos/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update client photo');
+  return res.json();
+}
+
+export async function deleteClientPhoto(id: number, token: string) {
+  const res = await fetchWithTimeout(`${API_URL}/api/client-photos/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to delete client photo');
   return res.json();
 }

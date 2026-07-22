@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { BookingDialog } from "@/components/BookingDialog";
 import { ReviewDialog } from "@/components/ReviewDialog";
 import { PressOnNailsOrder } from "@/components/PressOnNailsOrder";
+import { ClientPhotosSection } from "@/components/ClientPhotosSection";
 import { FormationDialog } from "@/components/FormationDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
@@ -372,8 +373,7 @@ const Index = () => {
             <h2 className="font-display text-4xl md:text-5xl mt-3 mb-6">Transmettez votre passion.</h2>
             <p className="text-muted-foreground mb-8 leading-relaxed">
               Vous rêvez de vous lancer dans la beauté des mains et du regard ? Je vous propose des
-              formations sur mesure en <span className="text-foreground font-medium">ongles</span> et
-              {" "}<span className="text-foreground font-medium">cils / sourcils</span>.
+               formations sur mesure en ongles et cils / sourcils.
               Apprenez les techniques professionnelles et repartez avec les clés de la réussite.
             </p>
             <ul className="space-y-4 mb-8">
@@ -628,6 +628,8 @@ const Index = () => {
           </div>
         );
       })()}
+
+      <ClientPhotosSection />
 
       {/* CTA */}
       <section className="py-20">

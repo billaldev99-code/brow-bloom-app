@@ -176,42 +176,18 @@ const sendConfirmationEmail = async (appointment) => {
   }
 };
 
-// Function to send WhatsApp confirmation via Meta Cloud API
-const sendWhatsAppConfirmation = async (appointment) => {
+// Shared helper to send any WhatsApp message via Meta Cloud API
+async function sendWhatsApp(phoneRaw, messageBody) {
   if (!META_WHATSAPP_TOKEN || !META_WHATSAPP_PHONE_NUMBER_ID) {
     console.log('⚠️ WhatsApp non configuré (Meta Cloud API manquante)');
     return false;
   }
-
   try {
-    console.log(`📱 Preparing WhatsApp for: ${appointment.client_phone}`);
-
-    const formattedDate = new Date(appointment.appointment_date).toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-    let phone = appointment.client_phone.trim();
-    phone = phone.replace(/[^\d+]/g, '');
-    if (phone.startsWith('+')) {
-      phone = phone.slice(1);
+    let phone = phoneRaw.trim().replace(/[^\d+]/g, '');
+    if (phone.startsWith('+')) phone = phone.slice(1);
+    if (!phone.startsWith('213') && !phone.startsWith('00')) {
+      phone = '213' + phone.replace(/^0+/, '');
     }
-
-    const messageBody = `Bonjour ${appointment.client_name} ! ✅
-
-Votre rendez-vous chez *Maison Belle* a été confirmé !
-
-📅 *Date :* ${formattedDate}
-🕐 *Heure :* ${appointment.appointment_time}
-💄 *Prestation :* ${appointment.service}
-🏷️ *Catégorie :* ${appointment.category}
-
-📍 *Adresse :* Cité 1045 logts, Bat 48, N° 08, Bordj Bou Arreridj
-
-Merci de votre confiance et à bientôt ! ✨`;
-
     const response = await fetch(
       `https://graph.facebook.com/${META_API_VERSION}/${META_WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
@@ -228,18 +204,65 @@ Merci de votre confiance et à bientôt ! ✨`;
         }),
       }
     );
-
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error?.message || `HTTP ${response.status}`);
     }
-
     console.log(`✅ WhatsApp sent successfully to +${phone}`);
     return true;
   } catch (err) {
-    console.error(`❌ Error sending WhatsApp to ${appointment.client_phone}:`, err.message);
+    console.error(`❌ WhatsApp error to ${phoneRaw}:`, err.message);
     return false;
   }
+}
+
+// WhatsApp for appointment confirmation
+const sendWhatsAppConfirmation = async (appointment) => {
+  const formattedDate = new Date(appointment.appointment_date).toLocaleDateString('fr-FR', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  const msg = `Bonjour ${appointment.client_name} ! ✅
+
+Votre rendez-vous chez *Maison Belle* a été confirmé !
+
+📅 *Date :* ${formattedDate}
+🕐 *Heure :* ${appointment.appointment_time}
+💄 *Prestation :* ${appointment.service}
+🏷️ *Catégorie :* ${appointment.category}
+
+📍 *Adresse :* Cité 1045 logts, Bat 48, N° 08, Bordj Bou Arreridj
+
+Merci de votre confiance et à bientôt ! ✨`;
+  return sendWhatsApp(appointment.client_phone, msg);
+};
+
+// WhatsApp for order confirmation
+const sendWhatsAppOrderConfirmation = async (order) => {
+  const msg = `Bonjour ${order.client_name} ! ✅
+
+Votre commande *Press On Nails* chez Maison Belle a été confirmée !
+
+📦 *Commande :* #PON-${order.id}
+💅 *Type :* ${order.type === 'hands' ? 'Mains' : 'Pieds'}
+💰 *Total :* ${Number(order.total_price).toLocaleString('fr-FR')} DA
+📍 *Livraison :* ${order.wilaya}
+
+Nous vous contacterons dès l'expédition. Merci de votre confiance ! ✨`;
+  return sendWhatsApp(order.client_phone, msg);
+};
+
+// WhatsApp for formation decision
+const sendWhatsAppFormationNotification = async (formation, status) => {
+  const typeLabel = formation.type === 'ongles' ? 'Ongles' : 'Cils / Sourcils';
+  const decision = status === 'accepted' ? 'acceptée ✅' : 'refusée pour le moment ❌';
+  const msg = `Bonjour ${formation.client_name} !
+
+Votre demande de formation en *${typeLabel}* chez Maison Belle a été ${decision}.
+
+${formation.admin_message ? `✉️ Message : ${formation.admin_message}` : ''}
+
+Merci de votre intérêt ! ✨`;
+  return sendWhatsApp(formation.client_phone, msg);
 };
 
 const sendOrderConfirmationEmail = async (order) => {
@@ -700,7 +723,21 @@ app.patch('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
       'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
       [status, id]
     );
-    res.json(result.rows[0]);
+    const order = result.rows[0];
+    if (status === 'confirmed') {
+      await sendWhatsAppOrderConfirmation(order);
+    }
+    res.json(order);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM orders WHERE id = $1', [id]);
+    res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -909,7 +946,10 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
     );
     const formation = result.rows[0];
     if (formation && (status === 'accepted' || status === 'rejected')) {
-      await sendFormationEmail(formation, status);
+      await Promise.all([
+        sendFormationEmail(formation, status),
+        sendWhatsAppFormationNotification(formation, status),
+      ]);
     }
     res.json(formation);
   } catch (err) {
@@ -950,6 +990,134 @@ app.delete('/api/gallery/:id', verifyToken, isAdmin, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// CLIENT PHOTOS (Vos retours en images)
+async function ensureClientPhotosTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS client_photos (
+        id SERIAL PRIMARY KEY,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        prestation_type TEXT NOT NULL,
+        message TEXT,
+        photos TEXT[] NOT NULL DEFAULT '{}',
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+  } catch (err) {
+    console.error('⚠️ ensureClientPhotosTable failed:', err.message);
+  }
+}
+
+// Submit a client photo (public)
+app.post('/api/client-photos', async (req, res) => {
+  const { first_name, last_name, prestation_type, message, photos } = req.body;
+  if (!first_name || !last_name || !prestation_type || !photos || !photos.length) {
+    return res.status(400).json({ error: 'Nom, prénom, type de prestation et au moins une photo requis' });
+  }
+  try {
+    await ensureClientPhotosTable();
+    const result = await pool.query(
+      'INSERT INTO client_photos (first_name, last_name, prestation_type, message, photos) VALUES ($1, $2, $3, $4, $5) RETURNING id, status, created_at',
+      [first_name.trim(), last_name.trim(), prestation_type, message || null, photos]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error submitting client photo:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get approved client photos (public)
+app.get('/api/client-photos/approved', async (req, res) => {
+  try {
+    await ensureClientPhotosTable();
+    const result = await pool.query(
+      "SELECT id, first_name, last_name, prestation_type, message, created_at, array_length(photos, 1) as photo_count FROM client_photos WHERE status = 'approved' ORDER BY created_at DESC"
+    );
+    const base = `${req.protocol}://${req.get('host')}`;
+    const rows = result.rows.map(r => ({
+      ...r,
+      photos: Array.from({ length: r.photo_count || 0 }, (_, i) => `${base}/api/client-photos/${r.id}/photo/${i}`),
+    }));
+    res.json(rows);
+  } catch (err) {
+    console.error('Error loading approved photos:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all client photos (admin)
+app.get('/api/client-photos', verifyToken, isAdmin, async (req, res) => {
+  try {
+    await ensureClientPhotosTable();
+    const result = await pool.query('SELECT * FROM client_photos ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error loading client photos:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update client photo (admin)
+app.patch('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { status, message } = req.body;
+  try {
+    await ensureClientPhotosTable();
+    if (status && !['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Statut invalide' });
+    }
+    const updates = [];
+    const values = [];
+    let idx = 1;
+    if (status !== undefined) { updates.push(`status = $${idx++}`); values.push(status); }
+    if (message !== undefined) { updates.push(`message = $${idx++}`); values.push(message); }
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE client_photos SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(`Error updating client photo ${id}:`, err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete client photo (admin)
+app.delete('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await ensureClientPhotosTable();
+    await pool.query('DELETE FROM client_photos WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Serve client photo by index
+app.get('/api/client-photos/:id/photo/:index', async (req, res) => {
+  try {
+    await ensureClientPhotosTable();
+    const result = await pool.query('SELECT photos FROM client_photos WHERE id = $1', [req.params.id]);
+    const row = result.rows[0];
+    if (!row) return res.status(404).end();
+    const photo = row.photos[parseInt(req.params.index)];
+    if (!photo) return res.status(404).end();
+    const match = photo.match(/^data:(.+?);base64,(.+)$/);
+    if (!match) return res.status(400).end();
+    const buffer = Buffer.from(match[2], 'base64');
+    res.set('Content-Type', match[1]);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).end();
   }
 });
 
