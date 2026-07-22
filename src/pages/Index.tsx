@@ -749,7 +749,7 @@ const ServiceCard = ({ icon: Icon, title, items }: { icon: any; title: string; i
             <div className="font-medium">{n}</div>
             <div className="text-xs text-muted-foreground">{d}</div>
           </div>
-          <div className="text-gold font-medium">{p}</div>
+          <div className="text-gold font-medium whitespace-nowrap">{p}</div>
         </li>
       ))}
     </ul>

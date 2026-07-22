@@ -177,7 +177,7 @@ export const BookingDialog = ({ trigger }: Props) => {
                   <div className="font-medium">{s.name}</div>
                   <div className="text-xs text-muted-foreground">{s.duration}</div>
                 </div>
-                <div className="text-gold font-medium">{s.price}</div>
+                <div className="text-gold font-medium whitespace-nowrap">{s.price}</div>
               </button>
             ))}
             <Button variant="ghost" className="w-full mt-2" onClick={() => setStep(1)}>
