@@ -430,7 +430,7 @@ const Admin = () => {
             <Stat icon={Calendar} label="RDV à venir" value={upcoming.length} />
             <Stat icon={ShoppingBag} label="Commandes en attente" value={orders.filter(o => o.status === "pending").length} />
             <Stat icon={GraduationCap} label="Formations en attente" value={formations.filter(f => f.status === "pending").length} />
-            <Stat icon={Euro} label="CA total confirmé" value={`${totalRevenue}€`} />
+            <Stat icon={Euro} label="CA total confirmé" value={`${totalRevenue.toLocaleString("fr-FR")} DA`} />
             <Stat icon={Check} label="Top prestation" value={topService?.[0] || "—"} small />
           </div>
 
