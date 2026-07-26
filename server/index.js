@@ -3,6 +3,8 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 
@@ -16,18 +18,47 @@ const pool = new Pool({
   max: 1,
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 15000,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  ssl: process.env.DATABASE_URL?.includes('localhost')
+    ? false
+    : { rejectUnauthorized: true },
 });
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle PG client:', err.message);
 });
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set');
+  process.exit(1);
+}
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:5173', 'http://127.0.0.1:8080'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
+app.use(helmet());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Trop de tentatives, réessayez dans 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Auto-create tables on startup
 (async () => {
@@ -478,7 +509,7 @@ const isAdmin = (req, res, next) => {
 };
 
 // Signup
-app.post('/api/auth/signup', async (req, res) => {
+app.post('/api/auth/signup', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
@@ -497,7 +528,7 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
@@ -1119,6 +1150,14 @@ app.get('/api/client-photos/:id/photo/:index', async (req, res) => {
   } catch (err) {
     res.status(500).end();
   }
+});
+
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'Origine non autorisée' });
+  }
+  console.error('Unhandled error:', err.message);
+  res.status(500).json({ error: 'Erreur interne du serveur' });
 });
 
 const PORT = process.env.PORT || 3001;
