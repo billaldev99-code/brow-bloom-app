@@ -88,6 +88,8 @@ const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);
+  const [galleryPage, setGalleryPage] = useState(1);
+  const itemsPerPage = 6;
   const touchStartX = useRef(0);
 
   useEffect(() => {
@@ -508,50 +510,90 @@ const Index = () => {
               </div>
             ))
           ) : (
-            gallery.map((item) => {
-              const isVideo = item.media_type === 'video' || 
-                              item.image_url.startsWith('data:video') || 
-                              item.image_url.endsWith('.mp4') || 
-                              item.image_url.endsWith('.mov');
-              
-              return (
-                <div 
-                  key={item.id} 
-                  onClick={() => setLightboxItem(item)}
-                  className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square bg-muted cursor-pointer"
-                >
-                  {isVideo ? (
-                     <div className="w-full h-full relative">
-                       <video 
-                         src={item.image_url} 
-                         className="w-full h-full object-cover" 
-                         muted 
-                         loop 
-                         playsInline
-                         autoPlay
-                         onMouseOver={e => (e.target as HTMLVideoElement).play()}
-                       />
-                       <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-md rounded-full p-1.5 text-white">
-                         <Sparkles className="h-3 w-3" />
+            (() => {
+              const totalPages = Math.max(1, Math.ceil(gallery.length / itemsPerPage));
+              const safePage = Math.min(galleryPage, totalPages);
+              const start = (safePage - 1) * itemsPerPage;
+              const pageItems = gallery.slice(start, start + itemsPerPage);
+
+              return pageItems.map((item) => {
+                const isVideo = item.media_type === 'video' || 
+                                item.image_url.startsWith('data:video') || 
+                                item.image_url.endsWith('.mp4') || 
+                                item.image_url.endsWith('.mov');
+                
+                return (
+                  <div 
+                    key={item.id} 
+                    onClick={() => setLightboxItem(item)}
+                    className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square bg-muted cursor-pointer"
+                  >
+                    {isVideo ? (
+                       <div className="w-full h-full relative">
+                         <video 
+                           src={item.image_url} 
+                           className="w-full h-full object-cover" 
+                           muted 
+                           loop 
+                           playsInline
+                           autoPlay
+                           onMouseOver={e => (e.target as HTMLVideoElement).play()}
+                         />
+                         <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-md rounded-full p-1.5 text-white">
+                           <Sparkles className="h-3 w-3" />
+                         </div>
                        </div>
-                     </div>
-                  ) : (
-                    <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                  )}
-                  {item.title && (
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center pointer-events-none">
-                      <div className="text-white">
-                        <div className="font-display text-lg">{item.title}</div>
-                        {item.description && <div className="text-xs opacity-80">{item.description}</div>}
+                    ) : (
+                      <img src={item.image_url} alt={item.title || "Réalisation"} loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                    )}
+                    {item.title && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 text-center pointer-events-none">
+                        <div className="text-white">
+                          <div className="font-display text-lg">{item.title}</div>
+                          {item.description && <div className="text-xs opacity-80">{item.description}</div>}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
+                    )}
+                  </div>
+                );
+              })
+            })()
           )}
         </div>
+        {gallery.length > itemsPerPage && (
+          <div className="flex items-center justify-center gap-2 mt-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGalleryPage(p => Math.max(1, p - 1))}
+              disabled={galleryPage <= 1}
+              className="rounded-full px-4"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {Array.from({ length: Math.ceil(gallery.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
+              <Button
+                key={page}
+                variant={galleryPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => setGalleryPage(page)}
+                className="rounded-full w-9 h-9 p-0"
+              >
+                {page}
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGalleryPage(p => Math.min(Math.ceil(gallery.length / itemsPerPage), p + 1))}
+              disabled={galleryPage >= Math.ceil(gallery.length / itemsPerPage)}
+              className="rounded-full px-4"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* LIGHTBOX */}
