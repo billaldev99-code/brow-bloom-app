@@ -21,49 +21,49 @@ function PhotoCard({ item, onPhotoClick }: { item: ClientPhoto; onPhotoClick?: (
   const total = urls.length;
 
   return (
-    <div className="bg-card rounded-2xl overflow-hidden shadow-soft border border-border/50 group">
-      <div className="relative aspect-[4/3] bg-secondary/30">
-        {urls.length > 0 && (
-          <button onClick={() => onPhotoClick?.(urls, imgIdx)} className="w-full h-full block">
-            <img
-              src={urls[imgIdx]}
-              alt=""
-              className="w-full h-full object-cover transition-opacity duration-300"
-              loading="lazy"
-            />
+    <div className="overflow-hidden rounded-2xl group relative shadow-soft aspect-square bg-muted cursor-pointer">
+      {urls.length > 0 && (
+        <button onClick={() => onPhotoClick?.(urls, imgIdx)} className="w-full h-full block">
+          <img
+            src={urls[imgIdx]}
+            alt=""
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            loading="lazy"
+          />
+        </button>
+      )}
+      {total > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); setImgIdx(p => p > 0 ? p - 1 : total - 1); }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60 z-10">
+            <ChevronLeft className="h-5 w-5" />
           </button>
-        )}
-        {total > 1 && (
-          <>
-            <button onClick={(e) => { e.stopPropagation(); setImgIdx(p => p > 0 ? p - 1 : total - 1); }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); setImgIdx(p => p < total - 1 ? p + 1 : 0); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60">
-              <ChevronRight className="h-5 w-5" />
-            </button>
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {Array.from({ length: total }).map((_, i) => (
-                <button key={i} onClick={(e) => { e.stopPropagation(); setImgIdx(i); }}
-                  className={`h-1.5 rounded-full transition-all ${i === imgIdx ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-      <div className="p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-sm">{getInitials(item.first_name, item.last_name)}</span>
-          <span className="text-[10px] uppercase tracking-wider text-gold font-medium">{item.prestation_type}</span>
+          <button onClick={(e) => { e.stopPropagation(); setImgIdx(p => p < total - 1 ? p + 1 : 0); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60 z-10">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {Array.from({ length: total }).map((_, i) => (
+              <button key={i} onClick={(e) => { e.stopPropagation(); setImgIdx(i); }}
+                className={`h-1.5 rounded-full transition-all ${i === imgIdx ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
+            ))}
+          </div>
+        </>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div className="absolute bottom-0 inset-x-0 p-4 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-medium text-sm">{getInitials(item.first_name, item.last_name)}</span>
+            <span className="text-[10px] uppercase tracking-wider text-gold font-medium">{item.prestation_type}</span>
+          </div>
+          {item.message && (
+            <p className="text-xs italic leading-relaxed opacity-90">
+              <Quote className="h-3 w-3 inline mr-1 opacity-50" />
+              {item.message}
+            </p>
+          )}
+          <div className="text-[10px] text-white/60 mt-1">{formatDate(item.created_at)}</div>
         </div>
-        {item.message && (
-          <p className="text-xs text-muted-foreground italic leading-relaxed">
-            <Quote className="h-3 w-3 inline mr-1 opacity-50" />
-            {item.message}
-          </p>
-        )}
-        <div className="text-[10px] text-muted-foreground/60">{formatDate(item.created_at)}</div>
       </div>
     </div>
   );
@@ -73,6 +73,8 @@ export const ClientPhotosSection = () => {
   const [items, setItems] = useState<ClientPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<{ urls: string[]; idx: number } | null>(null);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 6;
   const touchStartX = useRef(0);
 
   const navigateLightbox = useCallback((dir: 'prev' | 'next') => {
@@ -133,11 +135,45 @@ export const ClientPhotosSection = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {items.map(item => (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {(items.length > itemsPerPage
+                ? items.slice((page - 1) * itemsPerPage, page * itemsPerPage)
+                : items
+              ).map(item => (
                 <PhotoCard key={item.id} item={item} onPhotoClick={(urls, idx) => setLightbox({ urls, idx })} />
               ))}
             </div>
+            {items.length > itemsPerPage && (
+              <div className="flex items-center justify-center gap-2 mt-10">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="h-9 w-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {Array.from({ length: Math.ceil(items.length / itemsPerPage) }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`h-9 w-9 rounded-full text-sm font-medium transition ${
+                      page === p
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage(p => Math.min(Math.ceil(items.length / itemsPerPage), p + 1))}
+                  disabled={page >= Math.ceil(items.length / itemsPerPage)}
+                  className="h-9 w-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="text-center mt-10">
               <ClientPhotoForm trigger={
                 <button className="inline-flex items-center gap-2 bg-gold text-gold-foreground px-6 py-3 rounded-full font-medium hover:bg-gold/90 transition-colors shadow-md">
