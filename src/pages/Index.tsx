@@ -135,6 +135,7 @@ const Index = () => {
           getPrestations().catch(() => []),
         ]);
         setReviews(reviewsData);
+        setReviewsPage(1);
         if (prestationsData.length > 0) {
           const epilationItems = FALLBACK_PRESTATIONS.filter(p => p.category === "epilation");
           setPrestations([...prestationsData, ...epilationItems]);
@@ -433,84 +434,67 @@ const Index = () => {
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Avis clientes</span>
             <h2 className="font-display text-4xl md:text-5xl mt-3">Elles en parlent mieux que nous</h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
-            {[
-              { n: "Camille B.", t: "Un travail d'orfèvre. Mes ongles n'ont jamais été aussi beaux et mes sourcils enfin parfaits !" },
-              { n: "Sarah B.", t: "Accueil au top, ambiance cocooning. Je ne vais plus nulle part ailleurs." },
-              { n: "Kenza M.", t: "Le brow lift a transformé mon regard. Résultat naturel et bluffant." },
-            ].map((r) => (
-              <div key={r.n} className="bg-card rounded-2xl p-6 shadow-soft">
-                <div className="flex gap-1 mb-3">
-                  {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-gold text-gold" />)}
-                </div>
-                <p className="text-sm text-muted-foreground mb-4 italic">« {r.t} »</p>
-                <div className="font-medium">{r.n}</div>
-              </div>
-            ))}
-          </div>
-
-          {(loading || reviews.length > 0) && (
-            <div className="mb-12">
-              
-              <div className="grid md:grid-cols-3 gap-6">
-                {loading ? (
-                   [1, 2, 3].map(i => (
-                    <Card key={i} className="p-6 space-y-4">
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map(j => <Skeleton key={j} className="h-4 w-4 rounded-full" />)}
-                      </div>
-                      <Skeleton className="h-16 w-full" />
-                      <Skeleton className="h-4 w-24" />
-                    </Card>
-                   ))
-                ) : (
-                  reviews.slice((reviewsPage - 1) * 3, reviewsPage * 3).map((review) => (
-                    <div key={review.id} className="bg-card rounded-2xl p-6 shadow-soft">
-                      <div className="flex gap-1 mb-3">
-                        {[...Array(review.rating)].map((_, i) => (
-                          <Star key={i} className="h-4 w-4 fill-gold text-gold" />
-                        ))}
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4 italic">« {review.review_text} »</p>
-                      <div className="font-medium">{review.client_name}</div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {(() => {
+              if (reviewsPage === 1) {
+                return [
+                  { id: "camille", name: "Camille B.", text: "Un travail d'orfèvre. Mes ongles n'ont jamais été aussi beaux et mes sourcils enfin parfaits !", rating: 5 },
+                  { id: "sarah", name: "Sarah B.", text: "Accueil au top, ambiance cocooning. Je ne vais plus nulle part ailleurs.", rating: 5 },
+                  { id: "kenza", name: "Kenza M.", text: "Le brow lift a transformé mon regard. Résultat naturel et bluffant.", rating: 5 },
+                ].map(r => (
+                  <div key={r.id} className="bg-card rounded-2xl p-6 shadow-soft">
+                    <div className="flex gap-1 mb-3">
+                      {[...Array(r.rating)].map((_, i) => <Star key={i} className="h-4 w-4 fill-gold text-gold" />)}
                     </div>
-                  ))
-                )}
-              </div>
-              {reviews.length > 3 && (
-                <div className="flex items-center justify-center gap-2 mt-8">
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={() => setReviewsPage(p => Math.max(1, p - 1))}
-                    disabled={reviewsPage <= 1}
-                    className="rounded-full px-4"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  {Array.from({ length: Math.ceil(reviews.length / 3) }, (_, i) => i + 1).map(p => (
-                    <Button
-                      key={p}
-                      variant={reviewsPage === p ? "default" : "outline"} size="sm"
-                      onClick={() => setReviewsPage(p)}
-                      className="rounded-full w-9 h-9 p-0"
-                    >
-                      {p}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={() => setReviewsPage(p => Math.min(Math.ceil(reviews.length / 3), p + 1))}
-                    disabled={reviewsPage >= Math.ceil(reviews.length / 3)}
-                    className="rounded-full px-4"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    <p className="text-sm text-muted-foreground mb-4 italic">« {r.text} »</p>
+                    <div className="font-medium">{r.name}</div>
+                  </div>
+                ));
+              }
+              const start = (reviewsPage - 2) * 3;
+              return reviews.slice(start, start + 3).map(r => (
+                <div key={r.id} className="bg-card rounded-2xl p-6 shadow-soft">
+                  <div className="flex gap-1 mb-3">
+                    {[...Array(r.rating)].map((_, i) => <Star key={i} className="h-4 w-4 fill-gold text-gold" />)}
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4 italic">« {r.review_text} »</p>
+                  <div className="font-medium">{r.client_name}</div>
                 </div>
-              )}
+              ));
+            })()}
+          </div>
+          {reviews.length > 0 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setReviewsPage(p => Math.max(1, p - 1))}
+                disabled={reviewsPage <= 1}
+                className="rounded-full px-4"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: Math.ceil(reviews.length / 3) + 1 }, (_, i) => i + 1).map(p => (
+                <Button
+                  key={p}
+                  variant={reviewsPage === p ? "default" : "outline"} size="sm"
+                  onClick={() => setReviewsPage(p)}
+                  className="rounded-full w-9 h-9 p-0"
+                >
+                  {p}
+                </Button>
+              ))}
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setReviewsPage(p => Math.min(Math.ceil(reviews.length / 3) + 1, p + 1))}
+                disabled={reviewsPage >= Math.ceil(reviews.length / 3) + 1}
+                className="rounded-full px-4"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           )}
 
-          <div className="max-w-md mx-auto text-center">
+          <div className="max-w-md mx-auto text-center mt-10">
             <ReviewDialog
               trigger={
                 <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full">
