@@ -8,7 +8,8 @@ import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
   MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X, ChevronLeft, ChevronRight, Scissors
 } from "lucide-react";
-import { EyeClosed } from 'lucide-react';
+import { EyeClosed, Sun, Moon } from 'lucide-react';
+import { useTheme } from "next-themes";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
@@ -186,6 +187,7 @@ const Index = () => {
                 </Button>
               </>
             )}
+            <ThemeToggle />
             <PressOnNailsOrder
               trigger={<Button size="sm" variant="outline" className="hidden sm:flex border-gold text-gold hover:bg-gold hover:text-white rounded-full px-5">Commander</Button>}
             />
@@ -807,5 +809,22 @@ const Info = ({ icon: Icon, label }: { icon: any; label: string }) => (
     <span>{label}</span>
   </div>
 );
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="text-muted-foreground hover:text-gold px-2"
+      aria-label="Changer le thème"
+    >
+      <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+    </Button>
+  );
+}
 
 export default Index;
