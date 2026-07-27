@@ -89,6 +89,7 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null);
   const [galleryPage, setGalleryPage] = useState(1);
+  const [reviewsPage, setReviewsPage] = useState(1);
   const itemsPerPage = 6;
   const touchStartX = useRef(0);
 
@@ -450,7 +451,7 @@ const Index = () => {
 
           {(loading || reviews.length > 0) && (
             <div className="mb-12">
-              <h3 className="font-display text-2xl mb-6 text-center">Avis récents</h3>
+              
               <div className="grid md:grid-cols-3 gap-6">
                 {loading ? (
                    [1, 2, 3].map(i => (
@@ -463,7 +464,7 @@ const Index = () => {
                     </Card>
                    ))
                 ) : (
-                  reviews.map((review) => (
+                  reviews.slice((reviewsPage - 1) * 3, reviewsPage * 3).map((review) => (
                     <div key={review.id} className="bg-card rounded-2xl p-6 shadow-soft">
                       <div className="flex gap-1 mb-3">
                         {[...Array(review.rating)].map((_, i) => (
@@ -476,6 +477,36 @@ const Index = () => {
                   ))
                 )}
               </div>
+              {reviews.length > 3 && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => setReviewsPage(p => Math.max(1, p - 1))}
+                    disabled={reviewsPage <= 1}
+                    className="rounded-full px-4"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {Array.from({ length: Math.ceil(reviews.length / 3) }, (_, i) => i + 1).map(p => (
+                    <Button
+                      key={p}
+                      variant={reviewsPage === p ? "default" : "outline"} size="sm"
+                      onClick={() => setReviewsPage(p)}
+                      className="rounded-full w-9 h-9 p-0"
+                    >
+                      {p}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => setReviewsPage(p => Math.min(Math.ceil(reviews.length / 3), p + 1))}
+                    disabled={reviewsPage >= Math.ceil(reviews.length / 3)}
+                    className="rounded-full px-4"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
