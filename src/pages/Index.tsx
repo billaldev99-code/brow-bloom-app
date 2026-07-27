@@ -20,6 +20,7 @@ import nailsImg from "@/assets/nails.jpg";
 import browsImg from "@/assets/brows.jpg";
 import cilsImg from "@/assets/cils.jpg";
 import ponImg from "@/assets/pon.jpg";
+import epilationImg from "@/assets/epilation.png";
 import artistImg from "@/assets/artist.jpg";
 
 interface Prestation {
@@ -263,6 +264,7 @@ const Index = () => {
             { img: browsImg, icon: Eye, title: "Sourcils", desc: "Restructuration, brow lift, teinture — un regard sublimé sur mesure." },
             { img: cilsImg, icon: EyeClosed, title: "Cils", desc: "Rehaussement de cils, extensions, teinture — pour un regard élégant et lumineux." },
             { img: ponImg, icon: Sparkles, title: "Press on nails", desc: "Capsules sur mesure, réutilisables et prêtes à porter — la beauté des ongles en toute simplicité.", isPON: true },
+            { img: epilationImg, icon: Scissors, title: "Épilation à la cire", desc: "Épilation douce et précise à la cire pour un résultat durable — jambes, aisselles, bras, visage." },
           ].map((c) => (
             <div key={c.title} className="group relative overflow-hidden rounded-3xl shadow-soft">
               <img src={c.img} alt={c.title} loading="lazy" width={1024} height={1024}
@@ -272,7 +274,7 @@ const Index = () => {
                 <div>
                   <c.icon className="h-6 w-6 text-gold mb-2" />
                   <h3 className="font-display text-3xl mb-2">{c.title}</h3>
-                  <p className="text-sm opacity-90 max-w-sm">{c.desc}</p>
+                  <p className="text-sm opacity-90">{c.desc}</p>
                 </div>
                 {c.isPON && (
                   <PressOnNailsOrder
