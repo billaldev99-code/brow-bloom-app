@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, Eye, Check, Loader2, EyeClosed } from "lucide-react";
+import { Sparkles, Eye, Check, Loader2, EyeClosed, Scissors } from "lucide-react";
 import { createAppointment, getPrestations, API_URL } from "@/integrations/api";
 import { z } from "zod";
 //commmentaire pour tester le déploiement sur vercel, à supprimer après
@@ -29,7 +29,7 @@ interface Props { trigger: React.ReactNode; }
 export const BookingDialog = ({ trigger }: Props) => {
   const [step, setStep] = useState(1);
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<"ongles" | "sourcils" | "cils" | "rehaussement de cils" | null>(null);
+  const [category, setCategory] = useState<"ongles" | "sourcils" | "cils" | "rehaussement de cils" | "epilation" | null>(null);
   const [service, setService] = useState<string | null>(null);
   const [date, setDate] = useState<string>("");
   const [slot, setSlot] = useState<string | null>(null);
@@ -40,11 +40,23 @@ export const BookingDialog = ({ trigger }: Props) => {
   const [prestationsLoading, setPrestationsLoading] = useState(false);
   const [prestationsError, setPrestationsError] = useState(false);
 
+  const FALLBACK_EPILATION = [
+    { id: 100, category: "epilation", name: "Sourcils", duration: "", price: "300 DA" },
+    { id: 101, category: "epilation", name: "Lèvre supérieure", duration: "", price: "300 DA" },
+    { id: 102, category: "epilation", name: "Menton", duration: "", price: "300 DA" },
+    { id: 103, category: "epilation", name: "Visage complet", duration: "", price: "1 000 DA" },
+    { id: 104, category: "epilation", name: "Aisselles", duration: "", price: "700 DA" },
+    { id: 105, category: "epilation", name: "Demi-bras", duration: "", price: "700 DA" },
+    { id: 106, category: "epilation", name: "Bras complets", duration: "", price: "1 000 DA" },
+    { id: 107, category: "epilation", name: "Demi-jambes", duration: "", price: "1 000 DA" },
+    { id: 108, category: "epilation", name: "Jambes complètes", duration: "", price: "1 500 DA" },
+  ];
+
   const loadPrestations = () => {
     setPrestationsLoading(true);
     setPrestationsError(false);
     getPrestations()
-      .then(setPrestations)
+      .then(data => setPrestations([...data, ...FALLBACK_EPILATION]))
       .catch((err) => {
         console.error(err);
         setPrestationsError(true);
@@ -148,6 +160,11 @@ export const BookingDialog = ({ trigger }: Props) => {
                 className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
                 <EyeClosed className="mx-auto mb-2 text-gold" />
                 <div className="font-display text-lg">Rehaussement de cils</div>
+              </button>
+              <button onClick={() => { setCategory("epilation"); setStep(2); }}
+                className="rounded-2xl border border-border p-6 hover:border-gold hover:bg-secondary transition text-center">
+                <Scissors className="mx-auto mb-2 text-gold" />
+                <div className="font-display text-lg">Épilation à la cire</div>
               </button>
             </div>
           </div>

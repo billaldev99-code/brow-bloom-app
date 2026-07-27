@@ -6,7 +6,7 @@ import { ClientPhotosSection } from "@/components/ClientPhotosSection";
 import { FormationDialog } from "@/components/FormationDialog";
 import {
   Sparkles, Eye, Star, Instagram, Phone, MapPin, Clock,
-  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X, ChevronLeft, ChevronRight
+  MessageCircle, Award, Heart, ShieldCheck, ArrowRight, Mail, EyeOff, ShoppingBag, LogOut, LayoutDashboard, GraduationCap, X, ChevronLeft, ChevronRight, Scissors
 } from "lucide-react";
 import { EyeClosed } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -51,6 +51,15 @@ const FALLBACK_PRESTATIONS: Prestation[] = [
   { id: 10, category: "cils", name: "Teinture cils", duration: "15 min", price: "12€" },
   { id: 11, category: "press on nails", name: "Set press on nails", duration: "sur mesure", price: "35€" },
   { id: 12, category: "press on nails", name: "Réutilisation set", duration: "livraison", price: "15€" },
+  { id: 13, category: "epilation", name: "Sourcils", duration: "", price: "300 DA" },
+  { id: 14, category: "epilation", name: "Lèvre supérieure", duration: "", price: "300 DA" },
+  { id: 15, category: "epilation", name: "Menton", duration: "", price: "300 DA" },
+  { id: 16, category: "epilation", name: "Visage complet", duration: "", price: "1 000 DA" },
+  { id: 17, category: "epilation", name: "Aisselles", duration: "", price: "700 DA" },
+  { id: 18, category: "epilation", name: "Demi-bras", duration: "", price: "700 DA" },
+  { id: 19, category: "epilation", name: "Bras complets", duration: "", price: "1 000 DA" },
+  { id: 20, category: "epilation", name: "Demi-jambes", duration: "", price: "1 000 DA" },
+  { id: 21, category: "epilation", name: "Jambes complètes", duration: "", price: "1 500 DA" },
 ];
 
 const Index = () => {
@@ -121,7 +130,10 @@ const Index = () => {
           getPrestations().catch(() => []),
         ]);
         setReviews(reviewsData);
-        if (prestationsData.length > 0) setPrestations(prestationsData);
+        if (prestationsData.length > 0) {
+          const epilationItems = FALLBACK_PRESTATIONS.filter(p => p.category === "epilation");
+          setPrestations([...prestationsData, ...epilationItems]);
+        }
       } catch (error) {
         console.error("Data fetching error:", error);
       } finally {
@@ -307,7 +319,7 @@ const Index = () => {
                 </Card>
               ))
             ) : (
-              ["ongles", "sourcils", "cils", "press on nails"].map(cat => {
+              ["ongles", "sourcils", "cils", "press on nails", "epilation"].map(cat => {
                 const items = prestations
                   .filter(p => p.category === cat)
                   .map(p => [p.name, p.duration, p.price] as string[]);
@@ -320,8 +332,8 @@ const Index = () => {
                 return (
                   <ServiceCard
                     key={cat}
-                    icon={cat === "ongles" || cat === "press on nails" ? Sparkles : cat === "sourcils" ? Eye : EyeClosed}
-                    title={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    icon={cat === "ongles" || cat === "press on nails" ? Sparkles : cat === "sourcils" ? Eye : cat === "epilation" ? Scissors : EyeClosed}
+                    title={cat === "epilation" ? "Épilation à la cire" : cat.charAt(0).toUpperCase() + cat.slice(1)}
                     items={items}
                   />
                 );
