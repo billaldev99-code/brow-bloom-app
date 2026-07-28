@@ -173,7 +173,9 @@ const Index = () => {
             <a href="#services" className="hover:text-gold transition">Prestations</a>
             <a href="#about" className="hover:text-gold transition">À propos</a>
             <a href="#formation" className="hover:text-gold transition">Formations</a>
+            <a href="#avis" className="hover:text-gold transition">Avis</a>
             <a href="#gallery" className="hover:text-gold transition">Galerie</a>
+            <a href="#temoignages" className="hover:text-gold transition">Témoignages</a>
             <a href="#contact" className="hover:text-gold transition">Contact</a>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -428,7 +430,7 @@ const Index = () => {
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="py-20 bg-secondary/40">
+      <section id="avis" className="py-20 bg-secondary/40">
         <div className="container">
           <div className="text-center mb-14">
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Avis clientes</span>
@@ -702,7 +704,7 @@ const Index = () => {
         );
       })()}
 
-      <ClientPhotosSection />
+      <section id="temoignages"><ClientPhotosSection /></section>
 
       {/* CTA */}
       <section className="py-20">
