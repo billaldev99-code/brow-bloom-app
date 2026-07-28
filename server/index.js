@@ -288,7 +288,8 @@ Nous vous contacterons dès l'expédition. Merci de votre confiance ! ✨`;
 
 // WhatsApp for formation decision
 const sendWhatsAppFormationNotification = async (formation, status) => {
-  const typeLabel = formation.type === 'ongles' ? 'Ongles' : 'Cils / Sourcils';
+  const types = formation.type.split(',').filter(Boolean);
+  const typeLabel = types.map(t => t === 'ongles' ? 'Ongles' : 'Cils / Sourcils').join(' et ');
   const decision = status === 'accepted' ? 'acceptée ✅' : 'refusée pour le moment ❌';
   const msg = `Bonjour ${formation.client_name} !
 
@@ -408,7 +409,8 @@ const sendFormationEmail = async (formation, status) => {
   try {
     console.log(`📧 Preparing formation email for: ${formation.client_email}`);
 
-    const typeLabel = formation.type === 'ongles' ? 'Ongles' : 'Cils / Sourcils';
+    const types = formation.type.split(',').filter(Boolean);
+    const typeLabel = types.map(t => t === 'ongles' ? 'Ongles' : 'Cils / Sourcils').join(' et ');
     const accepted = status === 'accepted';
 
     const decisionLine = accepted
@@ -934,18 +936,22 @@ async function ensureFormationsTable() {
 // FORMATIONS
 // Submit a formation request (public)
 app.post('/api/formations', async (req, res) => {
-  const { type, client_name, client_phone, client_email } = req.body;
-  if (!type || !client_name || !client_phone || !client_email) {
+  const { types, client_name, client_phone, client_email } = req.body;
+  if (!types || !Array.isArray(types) || types.length === 0 || !client_name || !client_phone || !client_email) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
-  if (!['ongles', 'cils_sourcils'].includes(type)) {
-    return res.status(400).json({ error: 'Type de formation invalide' });
+  const validTypes = ['ongles', 'cils_sourcils'];
+  for (const t of types) {
+    if (!validTypes.includes(t)) {
+      return res.status(400).json({ error: `Type de formation invalide: ${t}` });
+    }
   }
+  const typeStr = types.join(',');
   try {
     await ensureFormationsTable();
     const result = await pool.query(
       'INSERT INTO formations (type, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4) RETURNING *',
-      [type, client_name, client_phone, client_email]
+      [typeStr, client_name, client_phone, client_email]
     );
     res.json(result.rows[0]);
   } catch (err) {

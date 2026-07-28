@@ -30,7 +30,7 @@ export const BookingDialog = ({ trigger }: Props) => {
   const [step, setStep] = useState(1);
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<"ongles" | "sourcils" | "cils" | "rehaussement de cils" | "epilation" | null>(null);
-  const [service, setService] = useState<string | null>(null);
+  const [services, setServices] = useState<string[]>([]);
   const [date, setDate] = useState<string>("");
   const [slot, setSlot] = useState<string | null>(null);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
@@ -85,7 +85,7 @@ export const BookingDialog = ({ trigger }: Props) => {
   }, [date]);
 
   const reset = () => {
-    setStep(1); setCategory(null); setService(null); setDate(""); setSlot(null); setBookedSlots([]);
+    setStep(1); setCategory(null); setServices([]); setDate(""); setSlot(null); setBookedSlots([]);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -102,7 +102,7 @@ export const BookingDialog = ({ trigger }: Props) => {
     try {
       await createAppointment({
         category: category!,
-        service: service!,
+        service: services.join(", "),
         appointment_date: date,
         appointment_time: slot!,
         client_name: parsed.data.name,
@@ -116,7 +116,7 @@ export const BookingDialog = ({ trigger }: Props) => {
     }
     setSubmitting(false);
     toast.success("Rendez-vous confirmé ✨", {
-      description: `${service} le ${date} à ${slot}`,
+      description: `${services.join(", ")} le ${date} à ${slot}`,
     });
     setOpen(false);
     setTimeout(reset, 400);
@@ -172,7 +172,9 @@ export const BookingDialog = ({ trigger }: Props) => {
 
         {step === 2 && category && (
           <div className="space-y-2 pt-2 max-h-[60vh] overflow-y-auto">
-            <p className="text-sm text-muted-foreground">Sélectionnez votre prestation</p>
+            <p className="text-sm text-muted-foreground">
+              {category === "epilation" ? "Sélectionnez votre(vos) prestation(s)" : "Sélectionnez votre prestation"}
+            </p>
             {prestationsLoading && (
               <div className="p-8 flex items-center justify-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Chargement des prestations...
@@ -188,16 +190,49 @@ export const BookingDialog = ({ trigger }: Props) => {
               <div className="p-8 text-center text-muted-foreground">Aucune prestation disponible pour cette catégorie.</div>
             )}
             {!prestationsLoading && filteredServices.map((s) => (
-              <button key={s.id} onClick={() => { setService(s.name); setStep(3); }}
-                className="w-full flex justify-between items-center rounded-xl border border-border p-4 hover:border-gold hover:bg-secondary transition text-left">
-                <div>
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">{s.duration}</div>
-                </div>
-                <div className="text-gold font-medium whitespace-nowrap">{s.price}</div>
-              </button>
+              category === "epilation" ? (
+                <label key={s.id}
+                  className={`flex justify-between items-center rounded-xl border p-4 transition cursor-pointer ${
+                    services.includes(s.name)
+                      ? "border-gold bg-gold/5"
+                      : "border-border hover:border-gold hover:bg-secondary"
+                  }`}>
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={services.includes(s.name)}
+                      onChange={() => {
+                        setServices(prev =>
+                          prev.includes(s.name) ? prev.filter(n => n !== s.name) : [...prev, s.name]
+                        );
+                      }}
+                      className="h-4 w-4 accent-gold" />
+                    <div>
+                      <div className="font-medium">{s.name}</div>
+                      <div className="text-xs text-muted-foreground">{s.duration}</div>
+                    </div>
+                  </div>
+                  <div className="text-gold font-medium whitespace-nowrap">{s.price}</div>
+                </label>
+              ) : (
+                <button key={s.id} onClick={() => { setServices([s.name]); setStep(3); }}
+                  className="w-full flex justify-between items-center rounded-xl border border-border p-4 hover:border-gold hover:bg-secondary transition text-left">
+                  <div>
+                    <div className="font-medium">{s.name}</div>
+                    <div className="text-xs text-muted-foreground">{s.duration}</div>
+                  </div>
+                  <div className="text-gold font-medium whitespace-nowrap">{s.price}</div>
+                </button>
+              )
             ))}
-            <Button variant="ghost" className="w-full mt-2" onClick={() => setStep(1)}>
+            {category === "epilation" && (
+              <Button
+                className="w-full bg-gold text-gold-foreground hover:bg-gold/90 shadow-gold"
+                disabled={services.length === 0}
+                onClick={() => setStep(3)}
+              >
+                Suivant →
+              </Button>
+            )}
+            <Button variant="ghost" className="w-full mt-2" onClick={() => { setStep(1); setServices([]); }}>
               ← Retour
             </Button>
           </div>
@@ -246,7 +281,7 @@ export const BookingDialog = ({ trigger }: Props) => {
         {step === 4 && (
           <form onSubmit={handleSubmit} className="space-y-3 pt-2">
             <div className="rounded-xl bg-secondary p-3 text-sm">
-              <div><span className="text-muted-foreground">Prestation : </span>{service}</div>
+              <div><span className="text-muted-foreground">Prestation(s) : </span>{services.join(", ")}</div>
               <div><span className="text-muted-foreground">Date : </span>{date} à {slot}</div>
             </div>
             <div>

@@ -291,7 +291,7 @@ export async function deleteGalleryItem(id: number, token: string) {
 
 // FORMATIONS
 export async function createFormation(data: {
-  type: string;
+  types: string[];
   client_name: string;
   client_phone: string;
   client_email: string;

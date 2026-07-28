@@ -600,7 +600,7 @@ const Admin = () => {
                     </div>
                   )}
                   {formations.map(f => {
-                          const typeLabel = f.type === "ongles" ? "Ongles" : "Cils / Sourcils";
+                          const typeLabel = f.type.split(",").filter(Boolean).map((t: string) => t === "ongles" ? "Ongles" : "Cils / Sourcils").join(" + ");
                     return (
                       <div key={f.id} className="p-4 hover:bg-gold/5 transition-colors">
                         <div className="flex justify-between items-start mb-2">
