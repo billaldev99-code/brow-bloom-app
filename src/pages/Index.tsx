@@ -875,9 +875,9 @@ function ThemeToggle() {
   return (
     <Button
       size="sm"
-      variant="ghost"
+      variant="outline"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="text-muted-foreground hover:text-gold px-2"
+      className="border-border hover:border-gold hover:text-gold text-muted-foreground px-2.5 rounded-full"
       aria-label="Changer le thème"
     >
       <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
