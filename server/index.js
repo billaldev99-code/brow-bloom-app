@@ -11,6 +11,8 @@ import nodemailer from 'nodemailer';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true);
+
 const { Pool } = pg;
 
 const pool = new Pool({
