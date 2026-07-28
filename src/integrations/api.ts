@@ -1,7 +1,7 @@
 const getApiUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://localhost:3001';
+    return 'http://127.0.0.1:3001';
   }
   return 'https://brow-bloom-api.vercel.app'; // URL du backend déployé
 };

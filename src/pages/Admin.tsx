@@ -793,6 +793,7 @@ const PrestationManager = ({ data, onRefresh }: { data: Prestation[], onRefresh:
                 <option value="ongles">Ongles</option>
                 <option value="sourcils">Sourcils</option>
                 <option value="cils">Cils</option>
+                <option value="epilation">Épilation à la cire</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -818,15 +819,20 @@ const PrestationManager = ({ data, onRefresh }: { data: Prestation[], onRefresh:
         </Card>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {["ongles", "sourcils", "cils"].map(cat => (
-          <Card key={cat} className="overflow-hidden">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { key: "ongles", label: "Ongles" },
+          { key: "sourcils", label: "Sourcils" },
+          { key: "cils", label: "Cils" },
+          { key: "epilation", label: "Épilation à la cire" },
+        ].map(({ key, label }) => (
+          <Card key={key} className="overflow-hidden">
             <div className="p-4 border-b border-border bg-secondary/50 font-bold uppercase text-xs tracking-widest flex items-center justify-between">
-              {cat}
+              {label}
               <List className="h-3 w-3 text-gold" />
             </div>
             <div className="divide-y divide-border">
-              {data.filter(p => p.category === cat).map(p => (
+              {data.filter(p => p.category === key).map(p => (
                 <div key={p.id} className="p-4 flex justify-between items-center hover:bg-secondary/20 group transition-colors">
                   <div>
                     <div className="font-medium text-sm">{p.name}</div>
@@ -914,8 +920,8 @@ const PONManager = ({ data, onRefresh }: { data: ItemPON[], onRefresh: () => voi
                 <Input value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} placeholder="Ex: French Classique" />
               </div>
               <div className="space-y-2">
-                <Label>Prix (€)</Label>
-                <Input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} placeholder="Ex: 35" />
+                <Label>Prix (DA)</Label>
+                <Input type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} placeholder="Ex: 1500" />
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
@@ -963,7 +969,7 @@ const PONManager = ({ data, onRefresh }: { data: ItemPON[], onRefresh: () => voi
             </div>
             <div className="p-3">
               <div className="font-bold text-sm truncate">{item.name}</div>
-              <div className="text-gold text-xs font-bold">{item.price}€</div>
+              <div className="text-gold text-xs font-bold">{item.price} DA</div>
             </div>
           </div>
         ))}

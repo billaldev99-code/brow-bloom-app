@@ -21,7 +21,7 @@ import nailsImg from "@/assets/nails.jpg";
 import browsImg from "@/assets/brows.jpg";
 import cilsImg from "@/assets/cils.jpg";
 import ponImg from "@/assets/pon.jpg";
-import epilationImg from "@/assets/epilation.png";
+import epilationImg from "@/assets/epilation.webp";
 import artistImg from "@/assets/artist.jpg";
 
 interface Prestation {

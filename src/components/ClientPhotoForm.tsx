@@ -25,7 +25,7 @@ export const ClientPhotoForm = ({ trigger }: Props) => {
   const [photos, setPhotos] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const compressImage = (file: File, maxW = 800): Promise<string> =>
+  const compressImage = (file: File, maxW = 1920): Promise<string> =>
     new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -37,7 +37,7 @@ export const ClientPhotoForm = ({ trigger }: Props) => {
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext("2d")!;
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", 0.8));
+          resolve(canvas.toDataURL("image/jpeg", 0.95));
         };
         img.src = reader.result as string;
       };
