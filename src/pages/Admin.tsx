@@ -76,6 +76,8 @@ interface Appointment {
 interface Order {
   id: number;
   type: string;
+  forme?: string;
+  taille?: string;
   selected_prestations: string[];
   quantity: number;
   total_price: number;
@@ -310,6 +312,20 @@ const Admin = () => {
     setOrders(data);
   };
 
+  const deletePendingFormations = async () => {
+    const pending = formations.filter(f => f.status === "pending");
+    if (pending.length === 0) { toast.info("Aucune demande en attente"); return; }
+    if (!confirm(`Supprimer les ${pending.length} demandes de formation en attente ?`)) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    for (const f of pending) {
+      try { await deleteFormation(f.id, token); } catch {}
+    }
+    toast.success(`${pending.length} demandes supprimées`);
+    const data = await getFormations(token);
+    setFormations(data);
+  };
+
   const approveReview = async (id: string) => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -493,13 +509,19 @@ const Admin = () => {
                           <div className="text-sm">{a.service}</div>
                         </div>
                         <div className="flex gap-1">
-                          {a.status !== "confirmed" && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatus(a.id, "confirmed")}><Check className="h-4 w-4 text-green-600" /></Button>
+                          {a.status === "pending" && (
+                            <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => updateStatus(a.id, "confirmed")}>
+                              Confirmer
+                            </Button>
                           )}
-                          {a.status !== "cancelled" && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatus(a.id, "cancelled")}><X className="h-4 w-4 text-muted-foreground" /></Button>
+                          {a.status === "pending" && (
+                            <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-700 hover:bg-red-50" onClick={() => updateStatus(a.id, "cancelled")}>
+                              Refuser
+                            </Button>
                           )}
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          {a.status !== "cancelled" && a.status !== "confirmed" && (
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -534,7 +556,7 @@ const Admin = () => {
                           </div>
                           <div>
                             <div className="font-medium">{o.client_name} <span className="text-[10px] text-muted-foreground">#PON-{o.id}</span></div>
-                            <div className="text-xs text-muted-foreground">{o.client_phone} · {o.wilaya}</div>
+                            <div className="text-xs text-muted-foreground">{o.client_phone} · {o.address} · {o.commune} · {o.wilaya}</div>
                           </div>
                         </div>
                         <StatusBadge status={o.status} />
@@ -544,31 +566,41 @@ const Admin = () => {
                           <span className="text-muted-foreground">Type :</span>
                           <span className="capitalize">{o.type === 'hands' ? 'Mains' : 'Pieds'}</span>
                         </div>
+                        {o.forme && <div className="flex justify-between">
+                          <span className="text-muted-foreground">Forme :</span>
+                          <span>{o.forme}</span>
+                        </div>}
+                        {o.taille && <div className="flex justify-between">
+                          <span className="text-muted-foreground">Taille :</span>
+                          <span>{o.taille}</span>
+                        </div>}
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Modèles :</span>
-                          <span className="text-xs text-right truncate max-w-[200px]">{o.selected_prestations.join(', ')}</span>
+                          <span className="text-xs text-right">{o.selected_prestations.join(', ')}</span>
                         </div>
                         <div className="flex justify-between font-bold border-t border-border mt-1 pt-1">
                           <span>Total :</span>
                           <span className="text-gold">{Number(o.total_price).toLocaleString("fr-FR")} DA</span>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center mt-2">
-                        <div className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">
-                          {o.address}, {o.commune}
-                        </div>
+                      <div className="flex justify-end items-center mt-2">
                         <div className="flex gap-1">
-                          {o.status !== "confirmed" && (
+                          {o.status === "pending" && (
                             <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => updateStatusOrder(o.id, "confirmed")}>
                               Confirmer
                             </Button>
                           )}
-                          {o.status !== "shipped" && o.status === "confirmed" && (
+                          {o.status === "pending" && (
+                            <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-700 hover:bg-red-50" onClick={() => updateStatusOrder(o.id, "cancelled")}>
+                              Refuser
+                            </Button>
+                          )}
+                          {o.status === "confirmed" && (
                             <Button size="sm" variant="outline" className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => updateStatusOrder(o.id, "shipped")}>
                               Expédier
                             </Button>
                           )}
-                          {o.status !== "cancelled" && (
+                          {o.status !== "pending" && o.status !== "cancelled" && (
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => updateStatusOrder(o.id, "cancelled")}>
                               <X className="h-4 w-4" />
                             </Button>
@@ -586,6 +618,12 @@ const Admin = () => {
                   <h2 className="font-display text-xl flex items-center gap-2">
                     <GraduationCap className="h-5 w-5 text-gold" /> Demandes de formation ({formations.length})
                   </h2>
+                  {formations.filter(f => f.status === "pending").length > 0 && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive"
+                      onClick={deletePendingFormations}>
+                      <Trash2 className="h-3 w-3 mr-1" />Tout supprimer
+                    </Button>
+                  )}
                 </div>
                 <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
                   {formations.length === 0 && !errors.formations && (
@@ -641,14 +679,14 @@ const Admin = () => {
                               <Button size="sm" variant="ghost" onClick={() => { setDeciding(null); setFormationMsg(""); }}>Annuler</Button>
                             </div>
                           </div>
-                        ) : (
+                          ) : (
                           <div className="flex justify-end gap-1">
-                            {f.status !== "accepted" && (
+                            {f.status === "pending" && (
                               <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => { setDeciding({ id: f.id, status: "accepted" }); setFormationMsg(""); }}>
                                 Accepter
                               </Button>
                             )}
-                            {f.status !== "rejected" && (
+                            {f.status === "pending" && (
                               <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-700 hover:bg-red-50" onClick={() => { setDeciding({ id: f.id, status: "rejected" }); setFormationMsg(""); }}>
                                 Refuser
                               </Button>

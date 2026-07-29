@@ -56,7 +56,7 @@ export const BookingDialog = ({ trigger }: Props) => {
     setPrestationsLoading(true);
     setPrestationsError(false);
     getPrestations()
-      .then(data => setPrestations([...data, ...FALLBACK_EPILATION]))
+      .then(data => setPrestations(data))
       .catch((err) => {
         console.error(err);
         setPrestationsError(true);

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { createOrder } from "@/integrations/api";
+import { createOrder, getItemsPON } from "@/integrations/api";
 import nailsImg from "@/assets/nails.jpg";
 import { useEffect } from "react";
 
@@ -66,6 +66,18 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
   const [selectedItems, setSelectedItems] = useState<{id: number, qty: number}[]>([]);
   const [loading, setLoading] = useState(false);
   const [prestations, setPrestations] = useState<ItemPON[]>(PON_MODELS);
+  const [ponLoading, setPonLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setPonLoading(true);
+    getItemsPON()
+      .then(data => {
+        if (data.length > 0) setPrestations(data);
+      })
+      .catch(() => {})
+      .finally(() => setPonLoading(false));
+  }, [open]);
 
   const [formData, setFormData] = useState({
     name: "",

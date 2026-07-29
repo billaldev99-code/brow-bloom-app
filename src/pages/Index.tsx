@@ -137,8 +137,7 @@ const Index = () => {
         setReviews(reviewsData);
         setReviewsPage(1);
         if (prestationsData.length > 0) {
-          const epilationItems = FALLBACK_PRESTATIONS.filter(p => p.category === "epilation");
-          setPrestations([...prestationsData, ...epilationItems]);
+          setPrestations(prestationsData);
         }
       } catch (error) {
         console.error("Data fetching error:", error);

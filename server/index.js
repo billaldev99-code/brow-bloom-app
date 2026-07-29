@@ -488,7 +488,139 @@ const sendFormationEmail = async (formation, status) => {
   }
 };
 
-// Middleware pour vérifier JWT et rôle
+const sendAppointmentCancellationEmail = async (appointment) => {
+  try {
+    const formattedDate = new Date(appointment.appointment_date).toLocaleDateString('fr-FR', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+    const emailContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 8px; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #d4af37; padding-bottom: 20px; }
+    .header h1 { color: #d4af37; margin: 0; font-size: 28px; }
+    .header p { color: #666; margin: 5px 0 0 0; font-size: 14px; }
+    .content { background-color: white; padding: 20px; border-radius: 5px; }
+    .detail { margin: 15px 0; padding: 10px; background-color: #f5f5f5; border-left: 4px solid #d4af37; }
+    .detail strong { color: #d4af37; display: block; font-size: 12px; text-transform: uppercase; }
+    .detail span { display: block; font-size: 16px; margin-top: 5px; }
+    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <p>Rendez-vous refusé ❌</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>${appointment.client_name}</strong>,</p>
+      <p>Nous sommes désolés, votre rendez-vous du <strong>${formattedDate}</strong> à <strong>${appointment.appointment_time}</strong> a été <strong>refusé</strong>.</p>
+      <p>Veuillez nous contacter pour reprogrammer un créneau.</p>
+      <p style="margin-top: 30px; font-style: italic; color: #666;">Merci de votre compréhension.</p>
+      <p>L'équipe Maison Belle</p>
+    </div>
+    <div class="footer">
+      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: appointment.client_email,
+      subject: `Rendez-vous refusé - Maison Belle - ${formattedDate}`,
+      html: emailContent,
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Cancellation email sent to ${appointment.client_email}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ Error sending cancellation email to ${appointment.client_email}:`, err.message);
+    return false;
+  }
+};
+
+// Order status email (confirmed / cancelled)
+const sendOrderDecisionEmail = async (order, status) => {
+  try {
+    const accepted = status === 'confirmed';
+    const decision = accepted ? 'acceptée' : 'refusée';
+    const emoji = accepted ? '✅' : '❌';
+    const decisionLine = accepted
+      ? 'Votre commande a été <strong>acceptée</strong> et est en cours de préparation ✅'
+      : 'Votre commande a été <strong>refusée</strong> pour le moment ❌';
+
+    const emailContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 8px; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #d4af37; padding-bottom: 20px; }
+    .header h1 { color: #d4af37; margin: 0; font-size: 28px; }
+    .header p { color: #666; margin: 5px 0 0 0; font-size: 14px; }
+    .content { background-color: white; padding: 20px; border-radius: 5px; }
+    .order-detail { margin: 15px 0; padding: 10px; background-color: #f5f5f5; border-left: 4px solid #d4af37; }
+    .order-detail strong { color: #d4af37; display: block; font-size: 12px; text-transform: uppercase; }
+    .order-detail span { display: block; font-size: 16px; margin-top: 5px; }
+    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <p>Commande ${decision} ${emoji}</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>${order.client_name}</strong>,</p>
+      <p>${decisionLine}</p>
+      <div class="order-detail">
+        <strong>📦 Commande n°</strong>
+        <span>PON-${order.id.toString().padStart(4, '0')}</span>
+      </div>
+      <div class="order-detail">
+        <strong>💄 Type</strong>
+        <span>${order.type === 'hands' ? 'Mains' : 'Pieds'}</span>
+      </div>
+      <div class="order-detail">
+        <strong>✨ Modèles</strong>
+        <span>${order.selected_prestations.join(', ')}</span>
+      </div>
+      <div class="order-detail">
+        <strong>💰 Total</strong>
+        <span>${Number(order.total_price).toLocaleString('fr-FR')} DA</span>
+      </div>
+      ${accepted ? `<p style="margin-top: 30px; font-style: italic; color: #666;">Nous vous contacterons dès l'expédition. Merci de votre confiance !</p>` : ''}
+      <p>Merci de votre confiance !<br><strong>Maison Belle</strong></p>
+    </div>
+    <div class="footer">
+      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: order.client_email,
+      subject: `Commande ${decision} - Maison Belle - PON-${order.id.toString().padStart(4, '0')}`,
+      html: emailContent,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Order decision email sent to ${order.client_email}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ Error sending order decision email to ${order.client_email}:`, err.message);
+    return false;
+  }
+};
 const verifyToken = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
@@ -608,13 +740,16 @@ app.patch('/api/appointments/:id', verifyToken, isAdmin, async (req, res) => {
     
     const appointment = result.rows[0];
     
-    // Send confirmation email + WhatsApp if status changed to confirmed
+    // Send confirmation email + WhatsApp if status changed to confirmed (non-bloquant)
     if (status === 'confirmed') {
       console.log(`📬 Sending confirmations for appointment ${id}...`);
-      await Promise.all([
+      Promise.all([
         sendConfirmationEmail(appointment),
         sendWhatsAppConfirmation(appointment),
-      ]);
+      ]).catch(() => {});
+    }
+    if (status === 'cancelled') {
+      sendAppointmentCancellationEmail(appointment).catch(() => {});
     }
     
     res.json(appointment);
@@ -741,8 +876,8 @@ app.post('/api/orders', async (req, res) => {
     
     const order = result.rows[0];
     
-    // Send confirmation email
-    await sendOrderConfirmationEmail(order);
+    // Send confirmation email (non-bloquant - ne pas attendre)
+    sendOrderConfirmationEmail(order).catch(() => {});
     
     res.json(order);
   } catch (err) {
@@ -762,7 +897,11 @@ app.patch('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
     );
     const order = result.rows[0];
     if (status === 'confirmed') {
-      await sendWhatsAppOrderConfirmation(order);
+      sendWhatsAppOrderConfirmation(order).catch(() => {});
+      sendOrderDecisionEmail(order, status).catch(() => {});
+    }
+    if (status === 'cancelled') {
+      sendOrderDecisionEmail(order, status).catch(() => {});
     }
     res.json(order);
   } catch (err) {
@@ -987,10 +1126,10 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
     );
     const formation = result.rows[0];
     if (formation && (status === 'accepted' || status === 'rejected')) {
-      await Promise.all([
+      Promise.all([
         sendFormationEmail(formation, status),
         sendWhatsAppFormationNotification(formation, status),
-      ]);
+      ]).catch(() => {});
     }
     res.json(formation);
   } catch (err) {
