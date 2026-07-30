@@ -18,9 +18,9 @@ import { Card } from "@/components/ui/card";
 import { FadeIn } from "@/components/FadeIn";
 
 import heroImg from "@/assets/hero.jpg";
-import nailsImg from "@/assets/nails.jpg";
+import nailsImg from "@/assets/nails.webp";
 import browsImg from "@/assets/brows.jpg";
-import cilsImg from "@/assets/cils.jpg";
+import cilsImg from "@/assets/cils.webp";
 import ponImg from "@/assets/pon.webp";
 import epilationImg from "@/assets/epilation.webp";
 import artistImg from "@/assets/artist.jpg";
