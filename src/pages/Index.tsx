@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { FadeIn } from "@/components/FadeIn";
 
 import heroImg from "@/assets/hero.jpg";
 import nailsImg from "@/assets/nails.jpg";
@@ -221,16 +222,16 @@ const Index = () => {
             <div className="flex flex-wrap justify-start gap-3">
               <BookingDialog
                 trigger={
-                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 shadow-elegant">
-                    Prendre rendez-vous <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                }
-              />
-              <PressOnNailsOrder
-                trigger={
-                  <Button size="lg" variant="outline" className="rounded-full px-8 border-gold text-gold hover:bg-gold hover:text-white shadow-soft transition-all duration-300">
-                    Faire une commande <ShoppingBag className="ml-2 h-4 w-4" />
-                  </Button>
+                    <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 shadow-elegant animate-pulse-glow">
+                      Prendre rendez-vous <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  }
+                />
+                <PressOnNailsOrder
+                  trigger={
+                    <Button size="lg" variant="outline" className="rounded-full px-8 border-gold text-gold hover:bg-gold hover:text-white shadow-soft transition-all duration-300">
+                      Faire une commande <ShoppingBag className="ml-2 h-4 w-4" />
+                    </Button>
                 }
               />
               <div className="w-full flex justify-start mt-1">
@@ -264,7 +265,7 @@ const Index = () => {
       </section>
 
       {/* CATEGORIES */}
-      <section className="py-20 container">
+      <FadeIn><section className="py-20 container">
         <div className="grid md:grid-cols-2 gap-6">
           {[
             { img: nailsImg, icon: Sparkles, title: "Ongles", desc: "Pose de capsules, gel sur ongles naturels, vernis semi-permanent, nail art\u00A0—\u00A0pour des mains toujours\u00A0impeccables." },
@@ -273,13 +274,13 @@ const Index = () => {
             { img: ponImg, icon: Sparkles, title: "Press on nails", desc: "Capsules sur mesure, réutilisables et prêtes à porter — la beauté des ongles en toute simplicité.", isPON: true },
             { img: epilationImg, icon: Scissors, title: "Épilation à la cire", desc: "Épilation douce et précise à la cire pour un résultat durable — jambes, aisselles, bras, visage." },
           ].map((c) => (
-            <div key={c.title} className="group relative overflow-hidden rounded-3xl shadow-soft">
+            <div key={c.title} className="group relative overflow-hidden rounded-3xl shadow-soft hover:-translate-y-1 hover:shadow-xl transition-all duration-500">
               <img src={c.img} alt={c.title} loading="lazy" width={1024} height={1024}
                 className="w-full aspect-[4/3] object-cover transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent" />
               <div className="absolute bottom-0 inset-x-0 p-8 text-primary-foreground flex justify-between items-end">
                 <div>
-                  <c.icon className="h-6 w-6 text-gold mb-2" />
+                  <c.icon className="h-6 w-6 text-gold mb-2 group-hover:animate-bounce-icon" />
                   <h3 className="font-display text-3xl mb-2">{c.title}</h3>
                   <p className="text-sm opacity-90">{c.desc}</p>
                 </div>
@@ -296,11 +297,11 @@ const Index = () => {
             </div>
           ))}
         </div>
-      </section>
+      </section></FadeIn>
 
 
       {/* SERVICES */}
-      <section id="services" className="py-20 bg-secondary/40">
+      <FadeIn delay={100}><section id="services" className="py-20 bg-secondary/40">
         <div className="container">
           <div className="text-center mb-14">
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Nos prestations</span>
@@ -350,10 +351,10 @@ const Index = () => {
             )}
           </div>
         </div>
-      </section>
+      </section></FadeIn>
 
       {/* ABOUT */}
-      <section id="about" className="py-20 container">
+      <FadeIn delay={200}><section id="about" className="py-20 container">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="relative">
             <div className="absolute -inset-4 gradient-luxe rounded-[2.5rem] blur-2xl opacity-40 -z-10" />
@@ -384,10 +385,10 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section></FadeIn>
 
       {/* FORMATION */}
-      <section id="formation" className="py-20 bg-secondary/40">
+      <FadeIn delay={100}><section id="formation" className="py-20 bg-secondary/40">
         <div className="container grid md:grid-cols-2 gap-12 items-center">
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Formations</span>
@@ -426,10 +427,10 @@ const Index = () => {
               className="rounded-[2rem] shadow-elegant w-full object-cover aspect-[4/5]" />
           </div>
         </div>
-      </section>
+      </section></FadeIn>
 
       {/* TESTIMONIALS */}
-      <section id="avis" className="py-20 bg-secondary/40">
+      <FadeIn delay={150}><section id="avis" className="py-20 bg-secondary/40">
         <div className="container">
           <div className="text-center mb-14">
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Avis clientes</span>
@@ -505,10 +506,10 @@ const Index = () => {
             />
           </div>
         </div>
-      </section>
+      </section></FadeIn>
 
       {/* GALLERY */}
-      <section id="gallery" className="py-20 container">
+      <FadeIn delay={100}><section id="gallery" className="py-20 container">
         <div className="text-center mb-14">
           <span className="text-xs uppercase tracking-[0.2em] text-gold">Galerie</span>
           <h2 className="font-display text-4xl md:text-5xl mt-3">Inspirations & réalisations</h2>
@@ -610,7 +611,7 @@ const Index = () => {
             </Button>
           </div>
         )}
-      </section>
+      </section></FadeIn>
 
       {/* LIGHTBOX */}
       {lightboxItem && (() => {
@@ -706,7 +707,7 @@ const Index = () => {
       <section id="temoignages"><ClientPhotosSection /></section>
 
       {/* CTA */}
-      <section className="py-20">
+      <FadeIn delay={100}><section className="py-20">
         <div className="container">
           <div className="rounded-[2.5rem] gradient-luxe p-12 md:p-20 text-center shadow-elegant">
             <h2 className="font-display text-4xl md:text-5xl mb-4">Prête à vous offrir ce moment ?</h2>
@@ -716,9 +717,9 @@ const Index = () => {
             <div className="flex flex-wrap justify-center gap-4">
               <BookingDialog
                 trigger={
-                  <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-10 shadow-elegant">
-                    Réserver mon rendez-vous <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                    <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-10 shadow-elegant animate-pulse-glow">
+                      Réserver mon rendez-vous <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
                 }
               />
               <PressOnNailsOrder
@@ -740,10 +741,10 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section></FadeIn>
 
       {/* CONTACT */}
-      <section id="contact" className="py-20 bg-secondary/40">
+      <FadeIn delay={150}><section id="contact" className="py-20 bg-secondary/40">
         <div className="container grid md:grid-cols-2 gap-12">
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-gold">Contact</span>
@@ -783,7 +784,7 @@ const Index = () => {
             />
           </div>
         </div>
-      </section>
+      </section></FadeIn>
 
       {/* FOOTER */}
       <footer className="border-t border-border py-8">
@@ -835,7 +836,7 @@ const ServiceCard = ({ icon: Icon, title, items }: { icon: any; title: string; i
   const after = headerIdx > -1 ? items.slice(headerIdx + 1) : [];
 
   return (
-    <div className="bg-card rounded-3xl p-8 shadow-soft">
+    <div className="bg-card rounded-3xl p-8 shadow-soft hover:-translate-y-1 hover:shadow-xl transition-all duration-500">
       <div className="flex items-center gap-3 mb-6">
         <div className="h-12 w-12 rounded-2xl gradient-gold flex items-center justify-center shadow-gold">
           <Icon className="h-5 w-5 text-gold-foreground" />
