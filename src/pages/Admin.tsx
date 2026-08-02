@@ -366,6 +366,19 @@ const Admin = () => {
     }
   };
 
+  const deleteAllReviews = async () => {
+    if (reviews.length === 0) { toast.info("Aucun avis à supprimer"); return; }
+    if (!confirm(`Supprimer les ${reviews.length} avis ?`)) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    for (const r of reviews) {
+      try { await deleteReview(r.id, token); } catch {}
+    }
+    toast.success(`${reviews.length} avis supprimés`);
+    const data = await getReviewsAll(token);
+    setReviews(data);
+  };
+
   const decideFormation = async (id: number, status: "accepted" | "rejected", adminMessage: string) => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -703,7 +716,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="stats" className="m-0">
-            <StatsDashboard appointments={appointments} orders={orders} prestations={prestations} />
+            <StatsDashboard appointments={appointments} orders={orders} prestations={prestations} formations={formations} />
           </TabsContent>
 
           <TabsContent value="prestations" className="m-0">
@@ -720,10 +733,16 @@ const Admin = () => {
 
           <TabsContent value="reviews" className="m-0">
             <Card className="overflow-hidden">
-              <div className="p-4 border-b border-border">
+              <div className="p-4 border-b border-border flex justify-between items-center">
                 <h2 className="font-display text-xl flex items-center gap-2">
                   <Star className="h-5 w-5 text-gold" /> Avis clients ({reviews.length})
                 </h2>
+                {reviews.length > 0 && (
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive"
+                    onClick={deleteAllReviews}>
+                    <Trash2 className="h-3 w-3 mr-1" />Tout supprimer
+                  </Button>
+                )}
               </div>
               <div className="divide-y divide-border">
                 {reviews.length === 0 && !errors.reviews && (
@@ -1286,7 +1305,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 // STATISTICS DASHBOARD COMPONENT
-const StatsDashboard = ({ appointments, orders, prestations }: { appointments: any[], orders: any[], prestations: any[] }) => {
+const StatsDashboard = ({ appointments, orders, prestations, formations }: { appointments: any[], orders: any[], prestations: any[], formations: any[] }) => {
   // 1. Revenue trend (last 7 days)
   const last7Days = [...Array(7)].map((_, i) => {
     const d = new Date();
@@ -1413,7 +1432,7 @@ const StatsDashboard = ({ appointments, orders, prestations }: { appointments: a
             <Star className="h-8 w-8 text-gold" />
           </div>
           <h3 className="font-display text-2xl">Résumé Mensuel</h3>
-          <div className="grid grid-cols-2 gap-8 w-full max-w-xs mt-4">
+          <div className="grid grid-cols-3 gap-4 w-full max-w-sm mt-4">
             <div>
               <div className="text-3xl font-bold">{appointments.length}</div>
               <div className="text-xs opacity-70 uppercase tracking-widest">Réservations</div>
@@ -1421,6 +1440,10 @@ const StatsDashboard = ({ appointments, orders, prestations }: { appointments: a
             <div>
               <div className="text-3xl font-bold">{orders.length}</div>
               <div className="text-xs opacity-70 uppercase tracking-widest">Ventes PON</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold">{formations.length}</div>
+              <div className="text-xs opacity-70 uppercase tracking-widest">Formations</div>
             </div>
           </div>
           <p className="text-sm opacity-60 italic mt-4">

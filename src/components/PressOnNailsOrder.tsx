@@ -22,7 +22,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { createOrder, getItemsPON } from "@/integrations/api";
-import nailsImg from "@/assets/nails.jpg";
 import { useEffect } from "react";
 
 interface ItemPON {
@@ -144,6 +143,7 @@ export const PressOnNailsOrder = ({ trigger }: Props) => {
           const p = prestations.find(p => p.id === item.id);
           return `${p?.name || 'Inconnu'} (x${item.qty})`;
         }),
+        selected_items: selectedItems.map(item => ({ id: item.id, qty: item.qty })),
         quantity: selectedItems.reduce((acc, item) => acc + item.qty, 0),
         total_price: totalPrice,
         client_name: formData.name,

@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
+import { validateName, validatePhone, validateEmail, validateMessage, firstError, escapeHtml } from './validation.js';
 
 dotenv.config();
 
@@ -60,6 +61,14 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Trop de tentatives, réessayez dans 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const publicFormLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Trop de requêtes, réessayez dans 15 minutes' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -156,28 +165,28 @@ const sendConfirmationEmail = async (appointment) => {
     </div>
     
     <div class="content">
-      <p>Bonjour <strong>${appointment.client_name}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(appointment.client_name)}</strong>,</p>
       
       <p>Nous avons le plaisir de confirmer votre rendez-vous chez <strong>Maison Belle</strong>.</p>
       
       <div class="appointment-detail">
         <strong>📅 Date</strong>
-        <span>${formattedDate}</span>
+        <span>${escapeHtml(formattedDate)}</span>
       </div>
       
       <div class="appointment-detail">
         <strong>🕐 Heure</strong>
-        <span>${appointment.appointment_time}</span>
+        <span>${escapeHtml(appointment.appointment_time)}</span>
       </div>
       
       <div class="appointment-detail">
         <strong>💄 Prestation</strong>
-        <span>${appointment.service}</span>
+        <span>${escapeHtml(appointment.service)}</span>
       </div>
       
       <div class="appointment-detail">
         <strong>🏷️ Catégorie</strong>
-        <span>${appointment.category}</span>
+        <span>${escapeHtml(appointment.category)}</span>
       </div>
       
       <p style="margin-top: 30px; font-style: italic; color: #666;">
@@ -330,7 +339,7 @@ const sendOrderConfirmationEmail = async (order) => {
     </div>
     
     <div class="content">
-      <p>Bonjour <strong>${order.client_name}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(order.client_name)}</strong>,</p>
       
       <p>Nous avons bien reçu votre commande de <strong>Press On Nails</strong>.</p>
       
@@ -341,27 +350,27 @@ const sendOrderConfirmationEmail = async (order) => {
       
         <div class="order-detail">
           <strong>💄 Type</strong>
-          <span>${order.type === 'hands' ? 'Mains' : 'Pieds'}</span>
+          <span>${escapeHtml(order.type === 'hands' ? 'Mains' : 'Pieds')}</span>
         </div>
         
         <div class="order-detail">
           <strong>💅 Forme</strong>
-          <span>${order.forme || '-'}</span>
+          <span>${escapeHtml(order.forme || '-')}</span>
         </div>
         
         <div class="order-detail">
           <strong>📏 Taille</strong>
-          <span>${order.taille || '-'}</span>
+          <span>${escapeHtml(order.taille || '-')}</span>
         </div>
       
       <div class="order-detail">
         <strong>✨ Modèles</strong>
-        <span>${order.selected_prestations.join(', ')}</span>
+        <span>${escapeHtml(order.selected_prestations.join(', '))}</span>
       </div>
       
       <div class="order-detail">
         <strong>🔢 Quantité</strong>
-        <span>${order.quantity} set(s)</span>
+        <span>${escapeHtml(order.quantity)} set(s)</span>
       </div>
       
       <div class="order-detail">
@@ -371,7 +380,7 @@ const sendOrderConfirmationEmail = async (order) => {
       
       <div class="order-detail">
         <strong>📍 Adresse de livraison</strong>
-        <span>${order.address}, ${order.commune}, ${order.wilaya}</span>
+        <span>${escapeHtml(order.address)}, ${escapeHtml(order.commune)}, ${escapeHtml(order.wilaya)}</span>
       </div>
       
       <p style="margin-top: 30px; font-style: italic; color: #666;">
@@ -442,19 +451,19 @@ const sendFormationEmail = async (formation, status) => {
     </div>
 
     <div class="content">
-      <p>Bonjour <strong>${formation.client_name}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(formation.client_name)}</strong>,</p>
 
       <p>${decisionLine}</p>
 
       <div class="appointment-detail">
         <strong>💡 Domaine</strong>
-        <span>${typeLabel}</span>
+        <span>${escapeHtml(typeLabel)}</span>
       </div>
 
       ${formation.admin_message ? `
       <div class="appointment-detail">
         <strong>✉️ Message de la formatrice</strong>
-        <span>${formation.admin_message}</span>
+        <span>${escapeHtml(formation.admin_message)}</span>
       </div>` : ''}
 
       <p style="margin-top: 30px; font-style: italic; color: #666;">
@@ -517,8 +526,8 @@ const sendAppointmentCancellationEmail = async (appointment) => {
       <p>Rendez-vous refusé ❌</p>
     </div>
     <div class="content">
-      <p>Bonjour <strong>${appointment.client_name}</strong>,</p>
-      <p>Nous sommes désolés, votre rendez-vous du <strong>${formattedDate}</strong> à <strong>${appointment.appointment_time}</strong> a été <strong>refusé</strong>.</p>
+      <p>Bonjour <strong>${escapeHtml(appointment.client_name)}</strong>,</p>
+      <p>Nous sommes désolés, votre rendez-vous du <strong>${escapeHtml(formattedDate)}</strong> à <strong>${escapeHtml(appointment.appointment_time)}</strong> a été <strong>refusé</strong>.</p>
       <p>Veuillez nous contacter pour reprogrammer un créneau.</p>
       <p style="margin-top: 30px; font-style: italic; color: #666;">Merci de votre compréhension.</p>
       <p>L'équipe Maison Belle</p>
@@ -578,7 +587,7 @@ const sendOrderDecisionEmail = async (order, status) => {
       <p>Commande ${decision} ${emoji}</p>
     </div>
     <div class="content">
-      <p>Bonjour <strong>${order.client_name}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(order.client_name)}</strong>,</p>
       <p>${decisionLine}</p>
       <div class="order-detail">
         <strong>📦 Commande n°</strong>
@@ -586,11 +595,11 @@ const sendOrderDecisionEmail = async (order, status) => {
       </div>
       <div class="order-detail">
         <strong>💄 Type</strong>
-        <span>${order.type === 'hands' ? 'Mains' : 'Pieds'}</span>
+        <span>${escapeHtml(order.type === 'hands' ? 'Mains' : 'Pieds')}</span>
       </div>
       <div class="order-detail">
         <strong>✨ Modèles</strong>
-        <span>${order.selected_prestations.join(', ')}</span>
+        <span>${escapeHtml(order.selected_prestations.join(', '))}</span>
       </div>
       <div class="order-detail">
         <strong>💰 Total</strong>
@@ -713,8 +722,22 @@ app.get('/api/appointments', verifyToken, isAdmin, async (req, res) => {
 });
 
 // Create appointment
-app.post('/api/appointments', async (req, res) => {
+app.post('/api/appointments', publicFormLimiter, async (req, res) => {
   const { category, service, appointment_date, appointment_time, client_name, client_phone, client_email } = req.body;
+  const error = firstError([
+    validateName(category, { required: true, min: 2, max: 50, label: 'Catégorie' }),
+    validateName(service, { required: true, min: 2, max: 500, label: 'Prestation' }),
+    validateName(client_name, { required: true, min: 2, max: 80, label: 'Nom' }),
+    validatePhone(client_phone, { required: true, label: 'Téléphone' }),
+    validateEmail(client_email, { required: true, label: 'Email' }),
+  ]);
+  if (error) return res.status(400).json({ error });
+  if (!appointment_date || !/^\d{4}-\d{2}-\d{2}$/.test(appointment_date)) {
+    return res.status(400).json({ error: 'Date invalide' });
+  }
+  if (!appointment_time || !/^\d{2}:\d{2}$/.test(appointment_time)) {
+    return res.status(400).json({ error: 'Heure invalide' });
+  }
   try {
     const result = await pool.query(
       'INSERT INTO appointments (category, service, appointment_date, appointment_time, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
@@ -783,11 +806,14 @@ app.get('/api/reviews', async (req, res) => {
 });
 
 // Submit review (public)
-app.post('/api/reviews', async (req, res) => {
+app.post('/api/reviews', publicFormLimiter, async (req, res) => {
   const { client_name, client_email, rating, review_text } = req.body;
-  if (!client_name || !rating || !review_text) {
-    return res.status(400).json({ error: 'Name, rating and review are required' });
-  }
+  const error = firstError([
+    validateName(client_name, { required: true, min: 2, max: 50, label: 'Nom' }),
+    validateEmail(client_email, { required: false, label: 'Email' }),
+    validateMessage(review_text, { required: true, max: 1000, label: 'Avis' }),
+  ]);
+  if (error) return res.status(400).json({ error });
   if (rating < 1 || rating > 5) {
     return res.status(400).json({ error: 'Rating must be between 1 and 5' });
   }
@@ -852,14 +878,13 @@ app.get('/api/orders', verifyToken, isAdmin, async (req, res) => {
 });
 
 // Create order
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', publicFormLimiter, async (req, res) => {
   const { 
     type, 
     forme,
     taille,
     selected_prestations, 
-    quantity, 
-    total_price, 
+    selected_items,
     client_name, 
     client_phone, 
     client_email, 
@@ -867,17 +892,52 @@ app.post('/api/orders', async (req, res) => {
     wilaya, 
     commune 
   } = req.body;
-  
+
+  const error = firstError([
+    validateName(client_name, { required: true, min: 2, max: 50, label: 'Nom' }),
+    validatePhone(client_phone, { required: true, label: 'Téléphone' }),
+    validateEmail(client_email, { required: true, label: 'Email' }),
+    validateMessage(address, { required: true, max: 200, label: 'Adresse' }),
+    validateMessage(wilaya, { required: true, max: 100, label: 'Wilaya' }),
+    validateMessage(commune, { required: true, max: 100, label: 'Commune' }),
+  ]);
+  if (error) return res.status(400).json({ error });
+  if (!['hands', 'feet'].includes(type)) {
+    return res.status(400).json({ error: 'Type de commande invalide' });
+  }
+  if (!Array.isArray(selected_prestations) || selected_prestations.length === 0) {
+    return res.status(400).json({ error: 'Sélectionnez au moins un modèle' });
+  }
+  if (!Array.isArray(selected_items) || selected_items.length === 0) {
+    return res.status(400).json({ error: 'Sélectionnez au moins un modèle' });
+  }
+
   try {
+    // Prix calculé côté serveur à partir de la table items_pon (le client ne peut pas le modifier)
+    let totalPrice = 0;
+    let totalQuantity = 0;
+    for (const item of selected_items) {
+      const itemId = Number(item.id);
+      const qty = Number(item.qty);
+      if (!Number.isInteger(itemId) || !Number.isInteger(qty) || qty < 1 || qty > 10) {
+        return res.status(400).json({ error: 'Quantité invalide pour un modèle' });
+      }
+      const ponResult = await pool.query('SELECT price FROM items_pon WHERE id = $1', [itemId]);
+      const pon = ponResult.rows[0];
+      if (!pon) return res.status(400).json({ error: `Modèle inconnu (id ${itemId})` });
+      totalPrice += Number(pon.price) * qty;
+      totalQuantity += qty;
+    }
+    if (!Number.isInteger(totalQuantity) || totalQuantity < 1 || totalQuantity > 50) {
+      return res.status(400).json({ error: 'Quantité totale invalide' });
+    }
+
     const result = await pool.query(
       'INSERT INTO orders (type, forme, taille, selected_prestations, quantity, total_price, client_name, client_phone, client_email, address, wilaya, commune) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
-      [type, forme, taille, selected_prestations, quantity, total_price, client_name, client_phone, client_email, address, wilaya, commune]
+      [type, forme, taille, selected_prestations, totalQuantity, totalPrice, client_name, client_phone, client_email, address, wilaya, commune]
     );
     
     const order = result.rows[0];
-    
-    // Send confirmation email (non-bloquant - ne pas attendre)
-    sendOrderConfirmationEmail(order).catch(() => {});
     
     res.json(order);
   } catch (err) {
@@ -897,8 +957,8 @@ app.patch('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
     );
     const order = result.rows[0];
     if (status === 'confirmed') {
+      sendOrderConfirmationEmail(order).catch(() => {});
       sendWhatsAppOrderConfirmation(order).catch(() => {});
-      sendOrderDecisionEmail(order, status).catch(() => {});
     }
     if (status === 'cancelled') {
       sendOrderDecisionEmail(order, status).catch(() => {});
@@ -1074,9 +1134,15 @@ async function ensureFormationsTable() {
 
 // FORMATIONS
 // Submit a formation request (public)
-app.post('/api/formations', async (req, res) => {
+app.post('/api/formations', publicFormLimiter, async (req, res) => {
   const { types, client_name, client_phone, client_email } = req.body;
-  if (!types || !Array.isArray(types) || types.length === 0 || !client_name || !client_phone || !client_email) {
+  const error = firstError([
+    validateName(client_name, { required: true, min: 2, max: 50, label: 'Nom' }),
+    validatePhone(client_phone, { required: true, label: 'Téléphone' }),
+    validateEmail(client_email, { required: true, label: 'Email' }),
+  ]);
+  if (error) return res.status(400).json({ error });
+  if (!types || !Array.isArray(types) || types.length === 0) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
   const validTypes = ['ongles', 'cils_sourcils'];
@@ -1194,10 +1260,28 @@ async function ensureClientPhotosTable() {
 }
 
 // Submit a client photo (public)
-app.post('/api/client-photos', async (req, res) => {
+app.post('/api/client-photos', publicFormLimiter, async (req, res) => {
   const { first_name, last_name, prestation_type, message, photos } = req.body;
-  if (!first_name || !last_name || !prestation_type || !photos || !photos.length) {
-    return res.status(400).json({ error: 'Nom, prénom, type de prestation et au moins une photo requis' });
+  const error = firstError([
+    validateName(first_name, { required: true, min: 2, max: 50, label: 'Prénom' }),
+    validateName(last_name, { required: true, min: 1, max: 50, label: 'Nom' }),
+    validateName(prestation_type, { required: true, min: 2, max: 50, label: 'Type de prestation' }),
+    validateMessage(message, { required: false, max: 1000, label: 'Message' }),
+  ]);
+  if (error) return res.status(400).json({ error });
+  if (!photos || !Array.isArray(photos) || photos.length === 0) {
+    return res.status(400).json({ error: 'Au moins une photo est requise' });
+  }
+  if (photos.length > 5) {
+    return res.status(400).json({ error: 'Maximum 5 photos' });
+  }
+  for (const photo of photos) {
+    if (typeof photo !== 'string' || !photo.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Format de photo invalide' });
+    }
+    if (photo.length > 4 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Photo trop volumineuse (max 4 Mo)' });
+    }
   }
   try {
     await ensureClientPhotosTable();
