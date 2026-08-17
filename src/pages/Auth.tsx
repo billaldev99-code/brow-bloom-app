@@ -20,9 +20,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
-    if (token && role === "admin") navigate("/admin");
+    if (role === "admin") navigate("/admin");
   }, [navigate]);
 
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -37,7 +36,6 @@ const Auth = () => {
         ? await login(email, password)
         : await signup(email, password);
       
-      localStorage.setItem("token", data.token);
       localStorage.setItem("userId", data.userId);
       localStorage.setItem("role", data.role || "user");
       

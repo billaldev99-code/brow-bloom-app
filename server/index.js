@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import { validateName, validatePhone, validateEmail, validateMessage, firstError, escapeHtml } from './validation.js';
@@ -36,9 +37,35 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+const AUTH_COOKIE_NAME = 'bb_session';
+const AUTH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+const isHttpsRequest = (req) => req.secure || req.headers['x-forwarded-proto'] === 'https';
+
+const setAuthCookie = (res, token, req) => {
+  const secure = isHttpsRequest(req);
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? 'none' : 'lax',
+    path: '/',
+    maxAge: AUTH_COOKIE_MAX_AGE,
+  });
+};
+
+const clearAuthCookie = (res, req) => {
+  const secure = isHttpsRequest(req);
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? 'none' : 'lax',
+    path: '/',
+  });
+};
+
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:5173', 'http://127.0.0.1:8080'];
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080', 'http://127.0.0.1:5173', 'http://127.0.0.1:8080', 'https://brow-bloom-app.vercel.app'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -56,6 +83,7 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(cookieParser());
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -73,25 +101,47 @@ const publicFormLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Auto-create tables on startup
+const mediaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  message: { error: 'Trop de requêtes, réessayez dans 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const mediaUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: "Trop d'uploads, réessayez dans 15 minutes" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const respondError = (req, res, err, status = 400) => {
+  console.error(`[${req.method} ${req.originalUrl}] Erreur API:`, err instanceof Error ? err.message : String(err));
+  res.status(status).json({ error: 'Une erreur est survenue, veuillez réessayer' });
+};
+
+// Vérification des tables requises au démarrage (lecture seule — le rôle
+// applicatif n'a PAS de droits DDL en production. Les tables doivent être
+// créées au préalable via server/schema.sql + server/setup_limited_role.sql).
+const REQUIRED_TABLES = ['users', 'appointments', 'reviews', 'orders', 'prestations', 'items_pon', 'gallery', 'formations', 'client_photos'];
 (async () => {
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS formations (
-        id SERIAL PRIMARY KEY,
-        type TEXT NOT NULL,
-        client_name TEXT NOT NULL,
-        client_phone TEXT NOT NULL,
-        client_email TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        admin_message TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
-    `);
-    console.log('✅ Formations table ready');
+    const result = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    );
+    const existing = new Set(result.rows.map(r => r.table_name));
+    const missing = REQUIRED_TABLES.filter(t => !existing.has(t));
+    if (missing.length > 0) {
+      console.error('⚠️ Tables manquantes:', missing.join(', '));
+      console.error('   → Exécutez une fois les migrations : psql "$DATABASE_URL" -f server/schema.sql');
+      console.error('   → puis utilisez le rôle limité : voir server/setup_limited_role.sql');
+    } else {
+      console.log('✅ Toutes les tables requises sont présentes');
+    }
   } catch (err) {
-    console.error('⚠️ Could not create formations table:', err.message);
+    console.error('⚠️ Impossible de vérifier les tables:', err.message);
   }
 })();
 
@@ -631,7 +681,7 @@ const sendOrderDecisionEmail = async (order, status) => {
   }
 };
 const verifyToken = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
+  const token = req.cookies?.[AUTH_COOKIE_NAME] || req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -668,9 +718,11 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
     );
     const user = result.rows[0];
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, userId: user.id, role: user.role });
+    setAuthCookie(res, token, req);
+    res.json({ userId: user.id, role: user.role });
   } catch (err) {
-    res.status(400).json({ error: err.message.includes('duplicate') ? 'Email already exists' : err.message });
+    console.error('[POST /api/auth/signup] Erreur:', err.message);
+    res.status(400).json({ error: 'Inscription impossible, veuillez réessayer' });
   }
 });
 
@@ -681,17 +733,30 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
   try {
     const result = await pool.query('SELECT id, password, role FROM users WHERE email = $1', [email]);
-    if (!result.rows[0]) return res.status(400).json({ error: 'User not found' });
-    
+    if (!result.rows[0]) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+
     const user = result.rows[0];
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(400).json({ error: 'Invalid password' });
+    if (!validPassword) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, userId: user.id, role: user.role });
+    setAuthCookie(res, token, req);
+    res.json({ userId: user.id, role: user.role });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[POST /api/auth/login] Erreur:', err.message);
+    res.status(500).json({ error: 'Une erreur est survenue, veuillez réessayer' });
   }
+});
+
+// Logout : supprime le cookie de session
+app.post('/api/auth/logout', (req, res) => {
+  clearAuthCookie(res, req);
+  res.json({ success: true });
+});
+
+// Récupérer l'utilisateur courant (vérification réelle côté serveur)
+app.get('/api/auth/me', verifyToken, (req, res) => {
+  res.json({ userId: req.user.id, email: req.user.email, role: req.user.role });
 });
 
 // Get booked slots for a date
@@ -705,7 +770,7 @@ app.get('/api/booked-slots', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -717,7 +782,7 @@ app.get('/api/appointments', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -745,7 +810,7 @@ app.post('/api/appointments', publicFormLimiter, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -778,7 +843,7 @@ app.patch('/api/appointments/:id', verifyToken, isAdmin, async (req, res) => {
     res.json(appointment);
   } catch (err) {
     console.error(`❌ Error updating appointment ${id}:`, err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -789,7 +854,7 @@ app.delete('/api/appointments/:id', verifyToken, isAdmin, async (req, res) => {
     await pool.query('DELETE FROM appointments WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -801,7 +866,7 @@ app.get('/api/reviews', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -825,7 +890,7 @@ app.post('/api/reviews', publicFormLimiter, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Error submitting review:', err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -837,7 +902,7 @@ app.get('/api/reviews/all', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -852,7 +917,7 @@ app.patch('/api/reviews/:id', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -863,7 +928,7 @@ app.delete('/api/reviews/:id', verifyToken, isAdmin, async (req, res) => {
     await pool.query('DELETE FROM reviews WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -873,7 +938,7 @@ app.get('/api/orders', verifyToken, isAdmin, async (req, res) => {
     const result = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -942,7 +1007,7 @@ app.post('/api/orders', publicFormLimiter, async (req, res) => {
     res.json(order);
   } catch (err) {
     console.error('Error creating order:', err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -965,7 +1030,7 @@ app.patch('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
     }
     res.json(order);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -975,7 +1040,7 @@ app.delete('/api/orders/:id', verifyToken, isAdmin, async (req, res) => {
     await pool.query('DELETE FROM orders WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -985,7 +1050,7 @@ app.get('/api/prestations', async (req, res) => {
     const result = await pool.query('SELECT * FROM prestations ORDER BY category, id');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -998,7 +1063,7 @@ app.post('/api/prestations', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1012,7 +1077,7 @@ app.put('/api/prestations/:id', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1022,7 +1087,7 @@ app.delete('/api/prestations/:id', verifyToken, isAdmin, async (req, res) => {
     await pool.query('DELETE FROM prestations WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1032,7 +1097,7 @@ app.get('/api/items-pon', async (req, res) => {
     const result = await pool.query('SELECT * FROM items_pon ORDER BY id');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -1045,7 +1110,7 @@ app.post('/api/items-pon', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1059,7 +1124,7 @@ app.put('/api/items-pon/:id', verifyToken, isAdmin, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1069,7 +1134,7 @@ app.delete('/api/items-pon/:id', verifyToken, isAdmin, async (req, res) => {
     await pool.query('DELETE FROM items_pon WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1088,12 +1153,12 @@ app.get('/api/gallery', async (req, res) => {
     }));
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
 // Serve gallery media (image/video) directly as a binary HTTP response
-app.get('/api/gallery/:id/media', async (req, res) => {
+app.get('/api/gallery/:id/media', mediaLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT image_url FROM gallery WHERE id = $1', [req.params.id]);
     const row = result.rows[0];
@@ -1110,27 +1175,6 @@ app.get('/api/gallery/:id/media', async (req, res) => {
     res.status(500).end();
   }
 });
-
-// Shared helper to ensure the formations table exists
-async function ensureFormationsTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS formations (
-        id SERIAL PRIMARY KEY,
-        type TEXT NOT NULL,
-        client_name TEXT NOT NULL,
-        client_phone TEXT NOT NULL,
-        client_email TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        admin_message TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
-    `);
-  } catch (err) {
-    console.error('⚠️ ensureFormationsTable failed:', err.message);
-  }
-}
 
 // FORMATIONS
 // Submit a formation request (public)
@@ -1153,7 +1197,6 @@ app.post('/api/formations', publicFormLimiter, async (req, res) => {
   }
   const typeStr = types.join(',');
   try {
-    await ensureFormationsTable();
     const result = await pool.query(
       'INSERT INTO formations (type, client_name, client_phone, client_email) VALUES ($1, $2, $3, $4) RETURNING *',
       [typeStr, client_name, client_phone, client_email]
@@ -1161,19 +1204,18 @@ app.post('/api/formations', publicFormLimiter, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Error submitting formation:', err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
 // Get all formation requests (admin)
 app.get('/api/formations', verifyToken, isAdmin, async (req, res) => {
   try {
-    await ensureFormationsTable();
     const result = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     console.error('Error loading formations:', err.message);
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -1185,7 +1227,6 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
     return res.status(400).json({ error: 'Statut invalide' });
   }
   try {
-    await ensureFormationsTable();
     const result = await pool.query(
       'UPDATE formations SET status = $1, admin_message = $2 WHERE id = $3 RETURNING *',
       [status, admin_message || null, id]
@@ -1200,7 +1241,7 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
     res.json(formation);
   } catch (err) {
     console.error(`❌ Error updating formation ${id}:`, err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1208,24 +1249,46 @@ app.patch('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
 app.delete('/api/formations/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    await ensureFormationsTable();
     await pool.query('DELETE FROM formations WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
-app.post('/api/gallery', verifyToken, isAdmin, async (req, res) => {
+const MAX_MEDIA_BYTES = 7 * 1024 * 1024; // 7 Mo décodés (compatible limite body 10 Mo)
+
+app.post('/api/gallery', verifyToken, isAdmin, mediaUploadLimiter, async (req, res) => {
   const { image_url, title, description, display_order, media_type } = req.body;
+  const mt = media_type || 'image';
+  if (!['image', 'video'].includes(mt)) {
+    return res.status(400).json({ error: 'Type de média invalide' });
+  }
+  const raw = String(image_url || '');
+  if (raw.startsWith('data:')) {
+    const match = raw.match(/^data:(image|video)\/([a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) return res.status(400).json({ error: 'Format de média invalide' });
+    const mimeType = match[1];
+    if (mimeType !== mt) {
+      return res.status(400).json({ error: 'Le type de média déclaré ne correspond pas au contenu' });
+    }
+    const b64 = match[3];
+    const decodedBytes = Math.floor((b64.length * 3) / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
+    if (decodedBytes > MAX_MEDIA_BYTES) {
+      const label = mt === 'video' ? 'Vidéo' : 'Image';
+      return res.status(400).json({ error: `${label} trop volumineuse (max 7 Mo)` });
+    }
+  } else if (!/^https?:\/\//.test(raw)) {
+    return res.status(400).json({ error: 'Format de média invalide' });
+  }
   try {
     const result = await pool.query(
       'INSERT INTO gallery (image_url, title, description, display_order, media_type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [image_url, title, description, display_order || 0, media_type || 'image']
+      [image_url, title, description, display_order || 0, mt]
     );
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1235,30 +1298,11 @@ app.delete('/api/gallery/:id', verifyToken, isAdmin, async (req, res) => {
     await pool.query('DELETE FROM gallery WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
 // CLIENT PHOTOS (Vos retours en images)
-async function ensureClientPhotosTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS client_photos (
-        id SERIAL PRIMARY KEY,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        prestation_type TEXT NOT NULL,
-        message TEXT,
-        photos TEXT[] NOT NULL DEFAULT '{}',
-        status TEXT DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-  } catch (err) {
-    console.error('⚠️ ensureClientPhotosTable failed:', err.message);
-  }
-}
-
 // Submit a client photo (public)
 app.post('/api/client-photos', publicFormLimiter, async (req, res) => {
   const { first_name, last_name, prestation_type, message, photos } = req.body;
@@ -1284,7 +1328,6 @@ app.post('/api/client-photos', publicFormLimiter, async (req, res) => {
     }
   }
   try {
-    await ensureClientPhotosTable();
     const result = await pool.query(
       'INSERT INTO client_photos (first_name, last_name, prestation_type, message, photos) VALUES ($1, $2, $3, $4, $5) RETURNING id, status, created_at',
       [first_name.trim(), last_name.trim(), prestation_type, message || null, photos]
@@ -1292,14 +1335,13 @@ app.post('/api/client-photos', publicFormLimiter, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Error submitting client photo:', err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
 // Get approved client photos (public)
 app.get('/api/client-photos/approved', async (req, res) => {
   try {
-    await ensureClientPhotosTable();
     const result = await pool.query(
       "SELECT id, first_name, last_name, prestation_type, message, created_at, array_length(photos, 1) as photo_count FROM client_photos WHERE status = 'approved' ORDER BY created_at DESC"
     );
@@ -1311,19 +1353,18 @@ app.get('/api/client-photos/approved', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('Error loading approved photos:', err.message);
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
 // Get all client photos (admin)
 app.get('/api/client-photos', verifyToken, isAdmin, async (req, res) => {
   try {
-    await ensureClientPhotosTable();
     const result = await pool.query('SELECT * FROM client_photos ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     console.error('Error loading client photos:', err.message);
-    res.status(500).json({ error: err.message });
+    respondError(req, res, err, 500);
   }
 });
 
@@ -1332,7 +1373,6 @@ app.patch('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   const { status, message } = req.body;
   try {
-    await ensureClientPhotosTable();
     if (status && !['pending', 'approved', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Statut invalide' });
     }
@@ -1349,7 +1389,7 @@ app.patch('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(`Error updating client photo ${id}:`, err.message);
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
@@ -1357,18 +1397,16 @@ app.patch('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
 app.delete('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    await ensureClientPhotosTable();
     await pool.query('DELETE FROM client_photos WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondError(req, res, err, 400);
   }
 });
 
 // Serve client photo by index
-app.get('/api/client-photos/:id/photo/:index', async (req, res) => {
+app.get('/api/client-photos/:id/photo/:index', mediaLimiter, async (req, res) => {
   try {
-    await ensureClientPhotosTable();
     const result = await pool.query('SELECT photos FROM client_photos WHERE id = $1', [req.params.id]);
     const row = result.rows[0];
     if (!row) return res.status(404).end();
@@ -1385,11 +1423,17 @@ app.get('/api/client-photos/:id/photo/:index', async (req, res) => {
   }
 });
 
+// Middleware d'erreur générique : journalise les détails côté serveur,
+// ne renvoie jamais de message technique/SQL au client.
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: 'Corps de requête invalide' });
+  }
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({ error: 'Origine non autorisée' });
   }
-  console.error('Unhandled error:', err.message);
+  console.error(`[${req.method} ${req.originalUrl}] Erreur non gérée:`, err instanceof Error ? err.stack || err.message : String(err));
   res.status(500).json({ error: 'Erreur interne du serveur' });
 });
 

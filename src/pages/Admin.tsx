@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { 
   getAppointments, 
+  getMe,
+  logout as apiLogout,
   updateAppointmentStatus, 
   deleteAppointment, 
   getReviewsAll, 
@@ -194,37 +196,39 @@ const Admin = () => {
   const [errors, setErrors] = useState<Record<string, string | boolean>>({});
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
-
-    if (!token) {
-      navigate("/auth");
-      return;
-    }
-
-    if (role !== "admin") {
-      toast.error("Accès refusé : vous n'êtes pas administrateur.");
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
-      localStorage.removeItem("userId");
-      navigate("/auth");
-      return;
-    }
-
-    loadAll(token);
+    let cancelled = false;
+    getMe()
+      .then((me) => {
+        if (cancelled) return;
+        if (me.role !== "admin") {
+          toast.error("Accès refusé : vous n'êtes pas administrateur.");
+          localStorage.removeItem("role");
+          localStorage.removeItem("userId");
+          navigate("/auth");
+          return;
+        }
+        loadAll();
+      })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem("role");
+        localStorage.removeItem("userId");
+        navigate("/auth");
+      });
+    return () => { cancelled = true; };
   }, []);
 
-  const loadAll = async (token: string) => {
+  const loadAll = async () => {
     setLoading(true);
     setErrors({});
     
     const tasks = [
-      { name: 'appointments', fn: () => getAppointments(token), setter: setAppointments },
-      { name: 'reviews', fn: () => getReviewsAll(token), setter: setReviews },
-      { name: 'orders', fn: () => getOrders(token), setter: setOrders },
+      { name: 'appointments', fn: () => getAppointments(), setter: setAppointments },
+      { name: 'reviews', fn: () => getReviewsAll(), setter: setReviews },
+      { name: 'orders', fn: () => getOrders(), setter: setOrders },
       { name: 'prestations', fn: () => getPrestations(), setter: setPrestations },
       { name: 'pon', fn: () => getItemsPON(), setter: setItemsPON },
-      { name: 'formations', fn: () => getFormations(token), setter: setFormations },
+      { name: 'formations', fn: () => getFormations(), setter: setFormations },
     ];
 
     await Promise.all(tasks.map(async (task) => {
@@ -245,12 +249,10 @@ const Admin = () => {
   };
 
   const updateStatus = async (id: number, status: string) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await updateAppointmentStatus(id, status, token);
+      await updateAppointmentStatus(id, status);
       toast.success("Mis à jour");
-      const data = await getAppointments(token);
+      const data = await getAppointments();
       setAppointments(data);
     } catch (err) {
       toast.error("Erreur");
@@ -258,12 +260,10 @@ const Admin = () => {
   };
 
   const updateStatusOrder = async (id: number, status: string) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await updateOrderStatus(id, status, token);
+      await updateOrderStatus(id, status);
       toast.success("Commande mise à jour");
-      const data = await getOrders(token);
+      const data = await getOrders();
       setOrders(data);
     } catch (err) {
       toast.error("Erreur lors de la mise à jour de la commande");
@@ -272,12 +272,10 @@ const Admin = () => {
 
   const remove = async (id: number) => {
     if (!confirm("Supprimer ce rendez-vous ?")) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await deleteAppointment(id, token);
+      await deleteAppointment(id);
       toast.success("Supprimé");
-      const data = await getAppointments(token);
+      const data = await getAppointments();
       setAppointments(data);
     } catch (err) {
       toast.error("Erreur");
@@ -288,13 +286,11 @@ const Admin = () => {
     const pending = appointments.filter(a => a.status === "pending");
     if (pending.length === 0) { toast.info("Aucun rendez-vous en attente"); return; }
     if (!confirm(`Supprimer les ${pending.length} rendez-vous en attente ?`)) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     for (const a of pending) {
-      try { await deleteAppointment(a.id, token); } catch {}
+      try { await deleteAppointment(a.id); } catch {}
     }
     toast.success(`${pending.length} rendez-vous supprimés`);
-    const data = await getAppointments(token);
+    const data = await getAppointments();
     setAppointments(data);
   };
 
@@ -302,13 +298,11 @@ const Admin = () => {
     const pending = orders.filter(o => o.status === "pending");
     if (pending.length === 0) { toast.info("Aucune commande en attente"); return; }
     if (!confirm(`Supprimer les ${pending.length} commandes en attente ?`)) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     for (const o of pending) {
-      try { await deleteOrder(o.id, token); } catch {}
+      try { await deleteOrder(o.id); } catch {}
     }
     toast.success(`${pending.length} commandes supprimées`);
-    const data = await getOrders(token);
+    const data = await getOrders();
     setOrders(data);
   };
 
@@ -316,23 +310,19 @@ const Admin = () => {
     const pending = formations.filter(f => f.status === "pending");
     if (pending.length === 0) { toast.info("Aucune demande en attente"); return; }
     if (!confirm(`Supprimer les ${pending.length} demandes de formation en attente ?`)) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     for (const f of pending) {
-      try { await deleteFormation(f.id, token); } catch {}
+      try { await deleteFormation(f.id); } catch {}
     }
     toast.success(`${pending.length} demandes supprimées`);
-    const data = await getFormations(token);
+    const data = await getFormations();
     setFormations(data);
   };
 
   const approveReview = async (id: string) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await updateReviewStatus(id, true, token);
+      await updateReviewStatus(id, true);
       toast.success("Avis approuvé");
-      const data = await getReviewsAll(token);
+      const data = await getReviewsAll();
       setReviews(data);
     } catch (err) {
       toast.error("Erreur");
@@ -340,12 +330,10 @@ const Admin = () => {
   };
 
   const rejectReview = async (id: string) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await updateReviewStatus(id, false, token);
+      await updateReviewStatus(id, false);
       toast.success("Avis rejeté");
-      const data = await getReviewsAll(token);
+      const data = await getReviewsAll();
       setReviews(data);
     } catch (err) {
       toast.error("Erreur");
@@ -354,12 +342,10 @@ const Admin = () => {
 
   const removeReview = async (id: string) => {
     if (!confirm("Supprimer cet avis ?")) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await deleteReview(id, token);
+      await deleteReview(id);
       toast.success("Avis supprimé");
-      const data = await getReviewsAll(token);
+      const data = await getReviewsAll();
       setReviews(data);
     } catch (err) {
       toast.error("Erreur");
@@ -369,24 +355,20 @@ const Admin = () => {
   const deleteAllReviews = async () => {
     if (reviews.length === 0) { toast.info("Aucun avis à supprimer"); return; }
     if (!confirm(`Supprimer les ${reviews.length} avis ?`)) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     for (const r of reviews) {
-      try { await deleteReview(r.id, token); } catch {}
+      try { await deleteReview(r.id); } catch {}
     }
     toast.success(`${reviews.length} avis supprimés`);
-    const data = await getReviewsAll(token);
+    const data = await getReviewsAll();
     setReviews(data);
   };
 
   const decideFormation = async (id: number, status: "accepted" | "rejected", adminMessage: string) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     setFormationSubmitting(true);
     try {
-      await updateFormationStatus(id, status, adminMessage, token);
+      await updateFormationStatus(id, status, adminMessage);
       toast.success(status === "accepted" ? "Demande acceptée — email envoyé" : "Demande refusée — email envoyé");
-      const data = await getFormations(token);
+      const data = await getFormations();
       setFormations(data);
     } catch (err) {
       toast.error("Erreur lors de la mise à jour");
@@ -397,12 +379,10 @@ const Admin = () => {
 
   const removeFormation = async (id: number) => {
     if (!confirm("Supprimer cette demande de formation ?")) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await deleteFormation(id, token);
+      await deleteFormation(id);
       toast.success("Demande supprimée");
-      const data = await getFormations(token);
+      const data = await getFormations();
       setFormations(data);
     } catch (err) {
       toast.error("Erreur");
@@ -410,10 +390,11 @@ const Admin = () => {
   };
 
   const logout = async () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userId");
-    navigate("/auth");
+    apiLogout().finally(() => {
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
+      navigate("/auth");
+    });
   };
 
   if (loading) {
@@ -720,11 +701,11 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="prestations" className="m-0">
-            <PrestationManager data={prestations} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
+            <PrestationManager data={prestations} onRefresh={() => loadAll()} />
           </TabsContent>
 
           <TabsContent value="pon" className="m-0">
-            <PONManager data={itemsPON} onRefresh={() => loadAll(localStorage.getItem("token")!)} />
+            <PONManager data={itemsPON} onRefresh={() => loadAll()} />
           </TabsContent>
 
           <TabsContent value="gallery" className="m-0">
@@ -795,14 +776,13 @@ const PrestationManager = ({ data, onRefresh }: { data: Prestation[], onRefresh:
   const [loading, setLoading] = useState(false);
 
   const save = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !editing?.name) return;
+    if (!editing?.name) return;
     setLoading(true);
     try {
       if (editing.id) {
-        await updatePrestation(editing.id, editing, token);
+        await updatePrestation(editing.id, editing);
       } else {
-        await createPrestation(editing, token);
+        await createPrestation(editing);
       }
       toast.success("Enregistré avec succès");
       setEditing(null);
@@ -816,10 +796,8 @@ const PrestationManager = ({ data, onRefresh }: { data: Prestation[], onRefresh:
 
   const remove = async (id: number) => {
     if (!confirm("Supprimer cette prestation ?")) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await deletePrestation(id, token);
+      await deletePrestation(id);
       toast.success("Supprimé");
       onRefresh();
     } catch (err) {
@@ -927,14 +905,13 @@ const PONManager = ({ data, onRefresh }: { data: ItemPON[], onRefresh: () => voi
   };
 
   const save = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !editing?.name) return;
+    if (!editing?.name) return;
     setLoading(true);
     try {
       if (editing.id) {
-        await updateItemPON(editing.id, editing, token);
+        await updateItemPON(editing.id, editing);
       } else {
-        await createItemPON(editing, token);
+        await createItemPON(editing);
       }
       toast.success("Modèle PON enregistré");
       setEditing(null);
@@ -948,10 +925,8 @@ const PONManager = ({ data, onRefresh }: { data: ItemPON[], onRefresh: () => voi
 
   const remove = async (id: number) => {
     if (!confirm("Supprimer ce modèle ?")) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await deleteItemPON(id, token);
+      await deleteItemPON(id);
       toast.success("Modèle supprimé");
       onRefresh();
     } catch (err) {
@@ -1088,9 +1063,6 @@ const GalleryManager = () => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
     setUploadingBatch(true);
     let successCount = 0;
     
@@ -1103,6 +1075,10 @@ const GalleryManager = () => {
                         fileName.endsWith('.mp4') || 
                         fileName.endsWith('.mov') || 
                         fileName.endsWith('.webm');
+        if (isVideo && file.size > 7 * 1024 * 1024) {
+          toast.error(`"${file.name}" est trop volumineux (max 7Mo pour les vidéos).`);
+          continue;
+        }
         
         const base64 = isVideo ? await fileToBase64(file) : await compressImage(await fileToBase64(file));
         await createGalleryItem({ 
@@ -1110,7 +1086,7 @@ const GalleryManager = () => {
           title: "", 
           description: "", 
           media_type: isVideo ? 'video' : 'image' 
-        }, token);
+        });
         successCount++;
       } catch (err) {
         console.error(`Failed to upload ${file.name}:`, err);
@@ -1129,18 +1105,17 @@ const GalleryManager = () => {
   };
 
   const save = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !editing?.image_url) return;
+    if (!editing?.image_url) return;
     
-    // Safety check: 20MB limit for base64 (approx 15MB file)
-    if (editing.image_url.length > 20 * 1024 * 1024) {
-      toast.error("Le fichier est trop volumineux (max ~15Mo).");
+    // Safety check: base64 ~9.5MB ≈ 7MB file (limite serveur)
+    if (editing.image_url.length > 9.5 * 1024 * 1024) {
+      toast.error("Le fichier est trop volumineux (max ~7Mo).");
       return;
     }
 
     setLoading(true);
     try {
-      await createGalleryItem(editing, token);
+      await createGalleryItem(editing);
       toast.success("Élément ajouté");
       setEditing(null);
       loadGallery();
@@ -1160,10 +1135,8 @@ const GalleryManager = () => {
 
   const remove = async (id: number) => {
     if (!confirm("Supprimer cet élément ?")) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
-      await deleteGalleryItem(id, token);
+      await deleteGalleryItem(id);
       toast.success("Élément supprimé");
       loadGallery();
     } catch (err) {
@@ -1483,12 +1456,10 @@ const ClientPhotoManager = () => {
   const [editMessage, setEditMessage] = useState("");
   const [saving, setSaving] = useState<number | null>(null);
 
-  const token = localStorage.getItem("token")!;
-
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getAllClientPhotos(token);
+      const data = await getAllClientPhotos();
       setItems(data);
     } catch {
       toast.error("Erreur de chargement des retours photos");
@@ -1504,7 +1475,7 @@ const ClientPhotoManager = () => {
   const handleAction = async (id: number, data: { status?: string; message?: string | null }) => {
     setSaving(id);
     try {
-      await updateClientPhoto(id, data, token);
+      await updateClientPhoto(id, data);
       setItems(prev => prev.map(i => i.id === id ? { ...i, ...data } as ClientPhoto : i));
       toast.success("Mise à jour effectuée");
       setEditingId(null);
@@ -1519,7 +1490,7 @@ const ClientPhotoManager = () => {
     if (!confirm("Supprimer ce retour ?")) return;
     setSaving(id);
     try {
-      await deleteClientPhoto(id, token);
+      await deleteClientPhoto(id);
       setItems(prev => prev.filter(i => i.id !== id));
       toast.success("Supprimé");
     } catch {

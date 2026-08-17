@@ -1,7 +1,7 @@
 const getApiUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://127.0.0.1:3001';
+    return window.location.origin; // dev : même origine (proxy Vite → http://127.0.0.1:3001)
   }
   return 'https://brow-bloom-api.vercel.app'; // URL du backend déployé
 };
@@ -15,6 +15,7 @@ async function fetchWithTimeout(url: string, options: any = {}, timeout = 60000)
   try {
     const response = await fetch(url, {
       ...options,
+      credentials: 'include',
       signal: controller.signal
     });
     clearTimeout(id);
@@ -53,6 +54,20 @@ export async function signup(email: string, password: string) {
   return res.json();
 }
 
+export async function logout() {
+  const res = await fetchWithTimeout(`${API_URL}/api/auth/logout`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Logout failed');
+  return res.json();
+}
+
+export async function getMe() {
+  const res = await fetchWithTimeout(`${API_URL}/api/auth/me`);
+  if (!res.ok) throw new Error('Not authenticated');
+  return res.json();
+}
+
 export async function createAppointment(data: any) {
   const res = await fetchWithTimeout(`${API_URL}/api/appointments`, {
     method: 'POST',
@@ -63,28 +78,25 @@ export async function createAppointment(data: any) {
   return res.json();
 }
 
-export async function getAppointments(token: string) {
-  const res = await fetchWithTimeout(`${API_URL}/api/appointments`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getAppointments() {
+  const res = await fetchWithTimeout(`${API_URL}/api/appointments`);
   if (!res.ok) throw new Error('Failed to fetch appointments');
   return res.json();
 }
 
-export async function updateAppointmentStatus(id: number, status: string, token: string) {
+export async function updateAppointmentStatus(id: number, status: string) {
   const res = await fetchWithTimeout(`${API_URL}/api/appointments/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error('Failed to update appointment status');
   return res.json();
 }
 
-export async function deleteAppointment(id: number, token: string) {
+export async function deleteAppointment(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/appointments/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete appointment');
   return res.json();
@@ -122,28 +134,25 @@ export async function getReviews() {
   return res.json();
 }
 
-export async function getReviewsAll(token: string) {
-  const res = await fetchWithTimeout(`${API_URL}/api/reviews/all`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getReviewsAll() {
+  const res = await fetchWithTimeout(`${API_URL}/api/reviews/all`);
   if (!res.ok) throw new Error('Failed to fetch all reviews');
   return res.json();
 }
 
-export async function updateReviewStatus(id: string, approved: boolean, token: string) {
+export async function updateReviewStatus(id: string, approved: boolean) {
   const res = await fetchWithTimeout(`${API_URL}/api/reviews/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ approved }),
   });
   if (!res.ok) throw new Error('Failed to update review status');
   return res.json();
 }
 
-export async function deleteReview(id: string, token: string) {
+export async function deleteReview(id: string) {
   const res = await fetchWithTimeout(`${API_URL}/api/reviews/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete review');
   return res.json();
@@ -159,18 +168,16 @@ export async function createOrder(data: any) {
   return res.json();
 }
 
-export async function getOrders(token: string) {
-  const res = await fetchWithTimeout(`${API_URL}/api/orders`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getOrders() {
+  const res = await fetchWithTimeout(`${API_URL}/api/orders`);
   if (!res.ok) throw new Error('Failed to fetch orders');
   return res.json();
 }
 
-export async function updateOrderStatus(id: number, status: string, token: string) {
+export async function updateOrderStatus(id: number, status: string) {
   const res = await fetchWithTimeout(`${API_URL}/api/orders/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error('Failed to update order status');
@@ -178,10 +185,9 @@ export async function updateOrderStatus(id: number, status: string, token: strin
 }
 
 // PRESTATIONS
-export async function deleteOrder(id: number, token: string) {
+export async function deleteOrder(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/orders/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete order');
   return res.json();
@@ -193,30 +199,29 @@ export async function getPrestations() {
   return res.json();
 }
 
-export async function createPrestation(data: any, token: string) {
+export async function createPrestation(data: any) {
   const res = await fetchWithTimeout(`${API_URL}/api/prestations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to create prestation');
   return res.json();
 }
 
-export async function updatePrestation(id: number, data: any, token: string) {
+export async function updatePrestation(id: number, data: any) {
   const res = await fetchWithTimeout(`${API_URL}/api/prestations/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to update prestation');
   return res.json();
 }
 
-export async function deletePrestation(id: number, token: string) {
+export async function deletePrestation(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/prestations/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete prestation');
   return res.json();
@@ -229,30 +234,29 @@ export async function getItemsPON() {
   return res.json();
 }
 
-export async function createItemPON(data: any, token: string) {
+export async function createItemPON(data: any) {
   const res = await fetchWithTimeout(`${API_URL}/api/items-pon`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to create PON item');
   return res.json();
 }
 
-export async function updateItemPON(id: number, data: any, token: string) {
+export async function updateItemPON(id: number, data: any) {
   const res = await fetchWithTimeout(`${API_URL}/api/items-pon/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to update PON item');
   return res.json();
 }
 
-export async function deleteItemPON(id: number, token: string) {
+export async function deleteItemPON(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/items-pon/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete PON item');
   return res.json();
@@ -270,20 +274,19 @@ export async function getGalleryItems() {
   }
 }
 
-export async function createGalleryItem(data: any, token: string) {
+export async function createGalleryItem(data: any) {
   const res = await fetchWithTimeout(`${API_URL}/api/gallery`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to create gallery item');
   return res.json();
 }
 
-export async function deleteGalleryItem(id: number, token: string) {
+export async function deleteGalleryItem(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/gallery/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete gallery item');
   return res.json();
@@ -309,10 +312,8 @@ export async function createFormation(data: {
   return res.json();
 }
 
-export async function getFormations(token: string) {
-  const res = await fetchWithTimeout(`${API_URL}/api/formations`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getFormations() {
+  const res = await fetchWithTimeout(`${API_URL}/api/formations`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Failed to fetch formations (${res.status}): ${body.slice(0, 200)}`);
@@ -320,20 +321,19 @@ export async function getFormations(token: string) {
   return res.json();
 }
 
-export async function updateFormationStatus(id: number, status: string, adminMessage: string | null, token: string) {
+export async function updateFormationStatus(id: number, status: string, adminMessage: string | null) {
   const res = await fetchWithTimeout(`${API_URL}/api/formations/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status, admin_message: adminMessage }),
   });
   if (!res.ok) throw new Error('Failed to update formation status');
   return res.json();
 }
 
-export async function deleteFormation(id: number, token: string) {
+export async function deleteFormation(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/formations/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete formation');
   return res.json();
@@ -376,28 +376,25 @@ export async function getApprovedClientPhotos() {
   return res.json() as Promise<ClientPhoto[]>;
 }
 
-export async function getAllClientPhotos(token: string) {
-  const res = await fetchWithTimeout(`${API_URL}/api/client-photos`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getAllClientPhotos() {
+  const res = await fetchWithTimeout(`${API_URL}/api/client-photos`);
   if (!res.ok) throw new Error('Failed to fetch client photos');
   return res.json() as Promise<ClientPhoto[]>;
 }
 
-export async function updateClientPhoto(id: number, data: { status?: string; message?: string | null }, token: string) {
+export async function updateClientPhoto(id: number, data: { status?: string; message?: string | null }) {
   const res = await fetchWithTimeout(`${API_URL}/api/client-photos/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Failed to update client photo');
   return res.json();
 }
 
-export async function deleteClientPhoto(id: number, token: string) {
+export async function deleteClientPhoto(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/client-photos/${id}`, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to delete client photo');
   return res.json();

@@ -12,7 +12,7 @@ import { EyeClosed, Sun, Moon } from 'lucide-react';
 import { useTheme } from "next-themes";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getReviews, getPrestations, getGalleryItems } from "@/integrations/api";
+import { getReviews, getPrestations, getGalleryItems, getMe, logout as apiLogout } from "@/integrations/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { FadeIn } from "@/components/FadeIn";
@@ -114,21 +114,21 @@ const Index = () => {
   }, [lightboxItem, gallery]);
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userId");
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    navigate("/");
+    apiLogout().finally(() => {
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      navigate("/");
+    });
   };
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const role = localStorage.getItem("role");
-      setIsLoggedIn(!!token);
-      setIsAdmin(role === "admin");
+      getMe()
+        .then((me) => { setIsLoggedIn(true); setIsAdmin(me.role === "admin"); })
+        .catch(() => { setIsLoggedIn(false); setIsAdmin(false); });
 
       try {
         const [reviewsData, prestationsData] = await Promise.all([

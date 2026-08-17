@@ -83,9 +83,35 @@ CREATE TABLE IF NOT EXISTS formations (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Créer la table reviews
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  client_name TEXT NOT NULL,
+  client_email TEXT,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text TEXT NOT NULL,
+  approved BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Créer la table client_photos
+CREATE TABLE IF NOT EXISTS client_photos (
+  id SERIAL PRIMARY KEY,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  prestation_type TEXT NOT NULL,
+  message TEXT,
+  photos TEXT[] NOT NULL DEFAULT '{}',
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Index pour les performances
 CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_prestations_category ON prestations(category);
 CREATE INDEX IF NOT EXISTS idx_formations_status ON formations(status);
+CREATE INDEX IF NOT EXISTS idx_reviews_approved ON reviews(approved);
+CREATE INDEX IF NOT EXISTS idx_reviews_created ON reviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_photos_status ON client_photos(status);
