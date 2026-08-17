@@ -82,7 +82,6 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
 const authLimiter = rateLimit({
@@ -708,13 +707,17 @@ const isAdmin = (req, res, next) => {
 // Signup
 app.post('/api/auth/signup', authLimiter, async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const error = firstError([
+    validateEmail(email, { required: true, max: 120, label: 'Email' }),
+    validateName(password, { required: true, min: 6, max: 72, label: 'Mot de passe' }),
+  ]);
+  if (error) return res.status(400).json({ error: 'Inscription impossible, veuillez réessayer' });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, role',
-      [email, hashedPassword]
+      [email.trim(), hashedPassword]
     );
     const user = result.rows[0];
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -879,7 +882,7 @@ app.post('/api/reviews', publicFormLimiter, async (req, res) => {
     validateMessage(review_text, { required: true, max: 1000, label: 'Avis' }),
   ]);
   if (error) return res.status(400).json({ error });
-  if (rating < 1 || rating > 5) {
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return res.status(400).json({ error: 'Rating must be between 1 and 5' });
   }
   try {
@@ -1407,10 +1410,12 @@ app.delete('/api/client-photos/:id', verifyToken, isAdmin, async (req, res) => {
 // Serve client photo by index
 app.get('/api/client-photos/:id/photo/:index', mediaLimiter, async (req, res) => {
   try {
+    const idx = Number(req.params.index);
+    if (!Number.isInteger(idx) || idx < 0) return res.status(400).end();
     const result = await pool.query('SELECT photos FROM client_photos WHERE id = $1', [req.params.id]);
     const row = result.rows[0];
     if (!row) return res.status(404).end();
-    const photo = row.photos[parseInt(req.params.index)];
+    const photo = row.photos[idx];
     if (!photo) return res.status(404).end();
     const match = photo.match(/^data:(.+?);base64,(.+)$/);
     if (!match) return res.status(400).end();

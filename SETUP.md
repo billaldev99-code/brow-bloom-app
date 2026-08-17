@@ -7,21 +7,11 @@
 
 ## Setup PostgreSQL Cloud (Recommended)
 
-### Option 1: Railway (Easiest)
-1. Go to https://railway.app
-2. Create an account and new project
-3. Add PostgreSQL database
-4. Copy the DATABASE_URL from Railway
-5. Open `server/.env` and paste it in `DATABASE_URL`
-
-### Option 2: Neon
+### Option 1: Neon
 1. Go to https://neon.tech
 2. Create account and database
 3. Copy connection string
 4. Paste in `server/.env`
-
-### Option 3: PlanetScale (MySQL)
-Similar to above, copy connection string to `.env`
 
 ## Setup Steps
 
@@ -40,32 +30,13 @@ PORT=3001
 ```
 
 ### 3. Create Database Tables
-Run this SQL in your PostgreSQL interface:
-```sql
-CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
-  email VARCHAR(120) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  role VARCHAR(20) DEFAULT 'user',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS appointments (
-  id SERIAL PRIMARY KEY,
-  category TEXT NOT NULL,
-  service TEXT NOT NULL,
-  appointment_date DATE NOT NULL,
-  appointment_time TEXT NOT NULL,
-  client_name TEXT NOT NULL,
-  client_phone TEXT NOT NULL,
-  client_email TEXT NOT NULL,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_appointments_date ON appointments(appointment_date);
-CREATE INDEX idx_users_email ON users(email);
+Run this SQL once (with an admin/superuser role):
+```bash
+psql "$DATABASE_URL" -f server/schema.sql
+# Créer le rôle applicatif limité aux opérations CRUD (SELECT/INSERT/UPDATE/DELETE, pas de DDL) :
+psql "$DATABASE_URL" -f server/setup_limited_role.sql
 ```
+Puis mettez `DATABASE_URL` dans `server/.env` avec le rôle applicatif limité.
 
 ### 4. Start Backend
 ```bash
@@ -79,7 +50,8 @@ Server runs on `http://localhost:3001`
 npm install  # if not done yet
 npm run dev
 ```
-Frontend runs on `http://localhost:8080`
+Frontend runs on `http://127.0.0.1:8080` (les appels `/api/*` sont proxifiés
+vers le backend local — la session est un cookie HttpOnly, aucune clé en localStorage)
 
 ### 6. Create First Admin User
 1. Go to `http://localhost:8080/auth`
@@ -92,17 +64,19 @@ UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';
 ## API Endpoints
 
 - `POST /api/auth/signup` - Create account
-- `POST /api/auth/login` - Login
-- `GET /api/appointments` - List all appointments (requires token)
+- `POST /api/auth/login` - Login (session cookie `bb_session`, HttpOnly)
+- `GET /api/auth/me` - Current user (session verification)
+- `POST /api/auth/logout` - Logout
+- `GET /api/appointments` - List all appointments (requires session)
 - `POST /api/appointments` - Create appointment
-- `PATCH /api/appointments/:id` - Update appointment status (requires token)
-- `DELETE /api/appointments/:id` - Delete appointment (requires token)
+- `PATCH /api/appointments/:id` - Update appointment status (requires session)
+- `DELETE /api/appointments/:id` - Delete appointment (requires session)
 
 ## Environment Variables
 
-### Frontend (.env)
+### Frontend (.env.local)
 ```
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=http://127.0.0.1:3001   # optionnel : par défaut, le dev passe par le proxy Vite
 ```
 
 ### Backend (server/.env)
@@ -111,6 +85,7 @@ DATABASE_URL=postgresql://...
 JWT_SECRET=your-secret-key
 PORT=3001
 NODE_ENV=development
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:8080,https://brow-bloom-app.vercel.app
 ```
 
 ## Troubleshooting
@@ -119,26 +94,28 @@ NODE_ENV=development
 - Check `DATABASE_URL` format
 - Ensure database is running/accessible
 - Check firewall rules
+- Check the PostgreSQL role has SELECT/INSERT/UPDATE/DELETE (see `server/setup_limited_role.sql`)
 
 ### CORS Error
 - Frontend must use correct API URL
-- Backend has CORS enabled for all origins (change in production)
+- Backend CORS allows only `ALLOWED_ORIGINS` (never use `*` with credentials)
 
-### Appointments Won't Load
-- Check token is saved in localStorage
-- Verify user is logged in
-- Check browser console for errors
+### Admin Shows "Loading…" / Redirect Loop
+- Clear the site data (`localStorage`) for the domain, then log in again
+- This happens when a leftover `role=admin` exists without a valid session cookie
 
 ## Production Deployment
 
 ### Backend
-Deploy to Render, Railway, Heroku:
-1. Set environment variables
+Deploy to Vercel:
+1. Set environment variables (DATABASE_URL, JWT_SECRET, ALLOWED_ORIGINS avec l'URL exacte du front)
 2. Deploy from GitHub
 
 ### Frontend
-Deploy to Vercel, Netlify:
-1. Update `VITE_API_URL` to production backend URL
+Deploy to Vercel:
+1. `VITE_API_URL` must point to the deployed backend (`https://brow-bloom-api...`)
 2. Deploy
 
-Example production API URL: `https://brow-bloom-api.railway.app`
+En production, le cookie de session utilise `Secure` + `SameSite=None` (HTTPS
+nécessaire). Depuis le navigateur, le front et l'API doivent être sur des
+origines listées dans `ALLOWED_ORIGINS`.
