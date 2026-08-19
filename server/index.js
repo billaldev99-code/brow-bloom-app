@@ -216,7 +216,7 @@ const sendConfirmationEmail = async (appointment) => {
     <div class="content">
       <p>Bonjour <strong>${escapeHtml(appointment.client_name)}</strong>,</p>
       
-      <p>Nous avons le plaisir de confirmer votre rendez-vous chez <strong>Maison Belle</strong>.</p>
+      <p>Nous avons le plaisir de confirmer votre rendez-vous chez <strong>Blooming by Kat</strong>.</p>
       
       <div class="appointment-detail">
         <strong>📅 Date</strong>
@@ -242,11 +242,11 @@ const sendConfirmationEmail = async (appointment) => {
         Si vous devez annuler ou modifier votre rendez-vous, veuillez nous contacter au moins 24 heures à l'avance.
       </p>
       
-      <p>Merci de votre confiance !<br><strong>Maison Belle</strong></p>
+      <p>Merci de votre confiance !<br><strong>Blooming by Kat</strong></p>
     </div>
     
     <div class="footer">
-      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+      <p>© 2026 Blooming by Kat. Tous droits réservés.</p>
     </div>
   </div>
 </body>
@@ -256,7 +256,7 @@ const sendConfirmationEmail = async (appointment) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: appointment.client_email,
-      subject: `Rendez-vous confirmé - Maison Belle - ${formattedDate}`,
+      subject: `Rendez-vous confirmé - Blooming by Kat - ${formattedDate}`,
       html: emailContent,
     };
 
@@ -316,7 +316,7 @@ const sendWhatsAppConfirmation = async (appointment) => {
   });
   const msg = `Bonjour ${appointment.client_name} ! ✅
 
-Votre rendez-vous chez *Maison Belle* a été confirmé !
+Votre rendez-vous chez *Blooming by Kat* a été confirmé !
 
 📅 *Date :* ${formattedDate}
 🕐 *Heure :* ${appointment.appointment_time}
@@ -333,7 +333,7 @@ Merci de votre confiance et à bientôt ! ✨`;
 const sendWhatsAppOrderConfirmation = async (order) => {
   const msg = `Bonjour ${order.client_name} ! ✅
 
-Votre commande *Press On Nails* chez Maison Belle a été confirmée !
+Votre commande *Press On Nails* chez Blooming by Kat a été confirmée !
 
 📦 *Commande :* #PON-${order.id}
 💅 *Type :* ${order.type === 'hands' ? 'Mains' : 'Pieds'}
@@ -351,7 +351,7 @@ const sendWhatsAppFormationNotification = async (formation, status) => {
   const decision = status === 'accepted' ? 'acceptée ✅' : 'refusée pour le moment ❌';
   const msg = `Bonjour ${formation.client_name} !
 
-Votre demande de formation en *${typeLabel}* chez Maison Belle a été ${decision}.
+Votre demande de formation en *${typeLabel}* chez Blooming by Kat a été ${decision}.
 
 ${formation.admin_message ? `✉️ Message : ${formation.admin_message}` : ''}
 
@@ -436,11 +436,11 @@ const sendOrderConfirmationEmail = async (order) => {
         Le temps de préparation est estimé à 3-5 jours ouvrés. Nous vous recontacterons dès que votre commande sera prête à être expédiée.
       </p>
       
-      <p>Merci de votre confiance !<br><strong>Maison Belle</strong></p>
+      <p>Merci de votre confiance !<br><strong>Blooming by Kat</strong></p>
     </div>
     
     <div class="footer">
-      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+      <p>© 2026 Blooming by Kat. Tous droits réservés.</p>
     </div>
   </div>
 </body>
@@ -450,7 +450,7 @@ const sendOrderConfirmationEmail = async (order) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: order.client_email,
-      subject: `Commande reçue - Maison Belle - PON-${order.id.toString().padStart(4, '0')}`,
+      subject: `Commande reçue - Blooming by Kat - PON-${order.id.toString().padStart(4, '0')}`,
       html: emailContent,
     };
 
@@ -519,11 +519,11 @@ const sendFormationEmail = async (formation, status) => {
         Merci de votre intérêt pour nos formations. Pour toute question, n'hésitez pas à nous contacter.
       </p>
 
-      <p>Encore merci de votre confiance !<br><strong>Maison Belle</strong></p>
+      <p>Encore merci de votre confiance !<br><strong>Blooming by Kat</strong></p>
     </div>
 
     <div class="footer">
-      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+      <p>© 2026 Blooming by Kat. Tous droits réservés.</p>
     </div>
   </div>
 </body>
@@ -533,7 +533,7 @@ const sendFormationEmail = async (formation, status) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: formation.client_email,
-      subject: `Demande de formation ${accepted ? 'acceptée' : 'refusée'} - Maison Belle - ${typeLabel}`,
+      subject: `Demande de formation ${accepted ? 'acceptée' : 'refusée'} - Blooming by Kat - ${typeLabel}`,
       html: emailContent,
     };
 
@@ -579,10 +579,10 @@ const sendAppointmentCancellationEmail = async (appointment) => {
       <p>Nous sommes désolés, votre rendez-vous du <strong>${escapeHtml(formattedDate)}</strong> à <strong>${escapeHtml(appointment.appointment_time)}</strong> a été <strong>refusé</strong>.</p>
       <p>Veuillez nous contacter pour reprogrammer un créneau.</p>
       <p style="margin-top: 30px; font-style: italic; color: #666;">Merci de votre compréhension.</p>
-      <p>L'équipe Maison Belle</p>
+      <p>L'équipe Blooming by Kat</p>
     </div>
     <div class="footer">
-      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+      <p>© 2026 Blooming by Kat. Tous droits réservés.</p>
     </div>
   </div>
 </body>
@@ -590,7 +590,7 @@ const sendAppointmentCancellationEmail = async (appointment) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: appointment.client_email,
-      subject: `Rendez-vous refusé - Maison Belle - ${formattedDate}`,
+      subject: `Rendez-vous refusé - Blooming by Kat - ${formattedDate}`,
       html: emailContent,
     };
     await transporter.sendMail(mailOptions);
@@ -655,10 +655,10 @@ const sendOrderDecisionEmail = async (order, status) => {
         <span>${Number(order.total_price).toLocaleString('fr-FR')} DA</span>
       </div>
       ${accepted ? `<p style="margin-top: 30px; font-style: italic; color: #666;">Nous vous contacterons dès l'expédition. Merci de votre confiance !</p>` : ''}
-      <p>Merci de votre confiance !<br><strong>Maison Belle</strong></p>
+      <p>Merci de votre confiance !<br><strong>Blooming by Kat</strong></p>
     </div>
     <div class="footer">
-      <p>© 2026 Maison Belle. Tous droits réservés.</p>
+      <p>© 2026 Blooming by Kat. Tous droits réservés.</p>
     </div>
   </div>
 </body>
@@ -667,7 +667,7 @@ const sendOrderDecisionEmail = async (order, status) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: order.client_email,
-      subject: `Commande ${decision} - Maison Belle - PON-${order.id.toString().padStart(4, '0')}`,
+      subject: `Commande ${decision} - Blooming by Kat - PON-${order.id.toString().padStart(4, '0')}`,
       html: emailContent,
     };
 

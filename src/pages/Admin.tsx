@@ -401,7 +401,7 @@ const Admin = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
         <Loader2 className="animate-spin text-gold h-12 w-12" />
-        <p className="text-muted-foreground font-display animate-pulse">Chargement de votre espace Maison Belle...</p>
+        <p className="text-muted-foreground font-display animate-pulse">Chargement de votre espace Blooming by Kat...</p>
       </div>
     );
   }
@@ -427,7 +427,7 @@ const Admin = () => {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-card">
         <div className="container flex justify-between items-center h-16">
-          <h1 className="font-display text-xl">Maison <span className="text-gold">Belle</span> — Admin</h1>
+          <h1 className="font-display text-xl">Blooming by <span className="text-gold">Kat</span> — Admin</h1>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => navigate("/")}>Voir le site</Button>
             <Button variant="outline" size="sm" onClick={logout}><LogOut className="h-4 w-4 mr-1" />Déconnexion</Button>

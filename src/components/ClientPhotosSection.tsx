@@ -121,7 +121,7 @@ export const ClientPhotosSection = () => {
           <span className="text-xs uppercase tracking-[0.2em] text-gold">Témoignages</span>
           <h2 className="font-display text-4xl md:text-5xl mt-3">Vos retours en images</h2>
           <p className="text-muted-foreground mb-8 leading-relaxed max-w-lg mx-auto">
-            Découvrez les résultats authentiques de nos clientes. Chaque photo est un vrai retour après une prestation chez Maison Belle.
+            Découvrez les résultats authentiques de nos clientes. Chaque photo est un vrai retour après une prestation chez Blooming by Kat.
           </p>
         </div>
 

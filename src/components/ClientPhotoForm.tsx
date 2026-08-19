@@ -104,7 +104,7 @@ export const ClientPhotoForm = ({ trigger }: Props) => {
                 Partagez votre résultat
               </DialogTitle>
               <p className="text-sm text-muted-foreground text-center mt-1">
-                Montrez à quel point vous êtes belle après votre passage chez Maison Belle ✨
+                Montrez à quel point vous êtes belle après votre passage chez Blooming by Kat ✨
               </p>
             </DialogHeader>
 

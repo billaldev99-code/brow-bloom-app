@@ -59,7 +59,7 @@ const Auth = () => {
         <div className="text-center mb-6">
           <Sparkles className="h-8 w-8 text-gold mx-auto mb-2" />
           <h1 className="font-display text-3xl">Espace Admin</h1>
-          <p className="text-sm text-muted-foreground mt-1">Maison Belle</p>
+          <p className="text-sm text-muted-foreground mt-1">Blooming by Kat</p>
         </div>
         <form onSubmit={handle} className="space-y-4">
           <div>
