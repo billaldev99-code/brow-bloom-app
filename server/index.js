@@ -47,7 +47,7 @@ const setAuthCookie = (res, token, req) => {
   res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure,
-    sameSite: secure ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
     maxAge: AUTH_COOKIE_MAX_AGE,
   });
@@ -58,7 +58,7 @@ const clearAuthCookie = (res, req) => {
   res.clearCookie(AUTH_COOKIE_NAME, {
     httpOnly: true,
     secure,
-    sameSite: secure ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
   });
 };
