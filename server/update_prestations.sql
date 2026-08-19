@@ -15,6 +15,7 @@ INSERT INTO prestations (category, name, duration, price) VALUES
   ('ongles', 'French & Baby Boomer', '', '2 400 DA'),
   ('ongles', 'Nail art', '', '3 000 DA'),
   ('ongles', 'Dépose', '', '1 000 DA'),
+  ('ongles', 'Pédicure', '', '2 000 DA'),
   ('ongles', 'Décoration d''ongles', '', '100 DA par doigt');
 
 -- 3) Sourcils (+ rehaussement de cils pour compléter la carte)
