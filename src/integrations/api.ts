@@ -7,14 +7,27 @@ const getApiUrl = () => {
 };
 
 export const API_URL = getApiUrl();
+const TOKEN_KEY = 'bb_token';
+
+const getToken = () => typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+
+export const setToken = (token: string | null) => {
+  if (typeof window === 'undefined') return;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+};
 
 async function fetchWithTimeout(url: string, options: any = {}, timeout = 60000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
+  const headers: Record<string, string> = { ...(options.headers || {}) };
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   console.log(`🚀 Requesting: ${url}`);
   try {
     const response = await fetch(url, {
       ...options,
+      headers,
       credentials: 'include',
       signal: controller.signal
     });
@@ -38,7 +51,9 @@ export async function login(email: string, password: string) {
     const err = await res.json().catch(() => ({ error: 'Login failed' }));
     throw new Error(err.error || 'Login failed');
   }
-  return res.json();
+  const data = await res.json();
+  if (data.token) setToken(data.token);
+  return data;
 }
 
 export async function signup(email: string, password: string) {
@@ -51,15 +66,21 @@ export async function signup(email: string, password: string) {
     const err = await res.json().catch(() => ({ error: 'Signup failed' }));
     throw new Error(err.error || 'Signup failed');
   }
-  return res.json();
+  const data = await res.json();
+  if (data.token) setToken(data.token);
+  return data;
 }
 
 export async function logout() {
-  const res = await fetchWithTimeout(`${API_URL}/api/auth/logout`, {
-    method: 'POST',
-  });
-  if (!res.ok) throw new Error('Logout failed');
-  return res.json();
+  try {
+    const res = await fetchWithTimeout(`${API_URL}/api/auth/logout`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Logout failed');
+    return await res.json();
+  } finally {
+    setToken(null);
+  }
 }
 
 export async function getMe() {

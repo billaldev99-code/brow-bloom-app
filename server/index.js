@@ -722,7 +722,7 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
     const user = result.rows[0];
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     setAuthCookie(res, token, req);
-    res.json({ userId: user.id, role: user.role });
+    res.json({ userId: user.id, role: user.role, token });
   } catch (err) {
     console.error('[POST /api/auth/signup] Erreur:', err.message);
     res.status(400).json({ error: 'Inscription impossible, veuillez réessayer' });
@@ -744,7 +744,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     setAuthCookie(res, token, req);
-    res.json({ userId: user.id, role: user.role });
+    res.json({ userId: user.id, role: user.role, token });
   } catch (err) {
     console.error('[POST /api/auth/login] Erreur:', err.message);
     res.status(500).json({ error: 'Une erreur est survenue, veuillez réessayer' });

@@ -41,7 +41,8 @@ import {
   getAllClientPhotos,
   updateClientPhoto,
   deleteClientPhoto,
-  ClientPhoto
+  ClientPhoto,
+  setToken
 } from "@/integrations/api";
 
 import {
@@ -204,6 +205,7 @@ const Admin = () => {
           toast.error("Accès refusé : vous n'êtes pas administrateur.");
           localStorage.removeItem("role");
           localStorage.removeItem("userId");
+          setToken(null);
           navigate("/auth");
           return;
         }
@@ -213,6 +215,7 @@ const Admin = () => {
         if (cancelled) return;
         localStorage.removeItem("role");
         localStorage.removeItem("userId");
+        setToken(null);
         navigate("/auth");
       });
     return () => { cancelled = true; };
@@ -393,6 +396,7 @@ const Admin = () => {
     apiLogout().finally(() => {
       localStorage.removeItem("role");
       localStorage.removeItem("userId");
+      setToken(null);
       navigate("/auth");
     });
   };
