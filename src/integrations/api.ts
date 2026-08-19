@@ -305,6 +305,16 @@ export async function createGalleryItem(data: any) {
   return res.json();
 }
 
+export async function updateGalleryItem(id: number, data: { title?: string; description?: string; display_order?: number }) {
+  const res = await fetchWithTimeout(`${API_URL}/api/gallery/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update gallery item');
+  return res.json();
+}
+
 export async function deleteGalleryItem(id: number) {
   const res = await fetchWithTimeout(`${API_URL}/api/gallery/${id}`, {
     method: 'DELETE',

@@ -34,6 +34,7 @@ import {
   deleteItemPON,
   getGalleryItems,
   createGalleryItem,
+  updateGalleryItem,
   deleteGalleryItem,
   getFormations,
   updateFormationStatus,
@@ -44,6 +45,14 @@ import {
   ClientPhoto,
   setToken
 } from "@/integrations/api";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 import {
   BarChart,
@@ -1022,6 +1031,10 @@ const GalleryManager = () => {
   const [editing, setEditing] = useState<Partial<GalleryItem> | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingBatch, setUploadingBatch] = useState(false);
+  const [editingMeta, setEditingMeta] = useState<GalleryItem | null>(null);
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
+  const [savingMeta, setSavingMeta] = useState(false);
 
   const loadGallery = async () => {
     setGlLoading(true);
@@ -1148,6 +1161,27 @@ const GalleryManager = () => {
     }
   };
 
+  const openEditMeta = (item: GalleryItem) => {
+    setEditingMeta(item);
+    setMetaTitle(item.title || "");
+    setMetaDescription(item.description || "");
+  };
+
+  const saveMeta = async () => {
+    if (!editingMeta) return;
+    setSavingMeta(true);
+    try {
+      await updateGalleryItem(editingMeta.id, { title: metaTitle.trim(), description: metaDescription.trim() });
+      toast.success("Élément modifié");
+      setEditingMeta(null);
+      loadGallery();
+    } catch (err) {
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1235,14 +1269,44 @@ const GalleryManager = () => {
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center">
                 {item.title && <div className="text-white text-xs font-bold mb-1">{item.title}</div>}
                 {item.media_type === 'video' && <div className="text-gold text-[10px] mb-2">Vidéo</div>}
-                <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => remove(item.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="icon" className="h-8 w-8 rounded-full bg-gold hover:bg-gold/90" onClick={() => openEditMeta(item)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full" onClick={() => remove(item.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Dialog open={!!editingMeta} onOpenChange={(open) => !open && setEditingMeta(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Modifier l'élément</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Titre (Optionnel)</Label>
+              <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} placeholder="Ex: Pose Gel French" />
+            </div>
+            <div className="space-y-2">
+              <Label>Description (Optionnelle)</Label>
+              <Input value={metaDescription} onChange={e => setMetaDescription(e.target.value)} placeholder="Ex: Avec décoration strass" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingMeta(null)}>Annuler</Button>
+            <Button onClick={saveMeta} disabled={savingMeta} className="bg-gold hover:bg-gold/90">
+              {savingMeta && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -209,7 +209,7 @@ const sendConfirmationEmail = async (appointment) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <h1>Blooming by <span style="color: #333;">Kat</span></h1>
       <p>Votre rendez-vous a été confirmé ✓</p>
     </div>
     
@@ -383,7 +383,7 @@ const sendOrderConfirmationEmail = async (order) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <h1>Blooming by <span style="color: #333;">Kat</span></h1>
       <p>Votre commande a été reçue ✓</p>
     </div>
     
@@ -495,7 +495,7 @@ const sendFormationEmail = async (formation, status) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <h1>Blooming by <span style="color: #333;">Kat</span></h1>
       <p>Demande de formation</p>
     </div>
 
@@ -571,7 +571,7 @@ const sendAppointmentCancellationEmail = async (appointment) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <h1>Blooming by <span style="color: #333;">Kat</span></h1>
       <p>Rendez-vous refusé ❌</p>
     </div>
     <div class="content">
@@ -632,7 +632,7 @@ const sendOrderDecisionEmail = async (order, status) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Maison <span style="color: #333;">Belle</span></h1>
+      <h1>Blooming by <span style="color: #333;">Kat</span></h1>
       <p>Commande ${decision} ${emoji}</p>
     </div>
     <div class="content">
@@ -1289,6 +1289,21 @@ app.post('/api/gallery', verifyToken, isAdmin, mediaUploadLimiter, async (req, r
       'INSERT INTO gallery (image_url, title, description, display_order, media_type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [image_url, title, description, display_order || 0, mt]
     );
+    res.json(result.rows[0]);
+  } catch (err) {
+    respondError(req, res, err, 400);
+  }
+});
+
+app.put('/api/gallery/:id', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { title, description, display_order } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE gallery SET title = $1, description = $2, display_order = $3 WHERE id = $4 RETURNING *',
+      [title ?? '', description ?? '', display_order ?? 0, id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Élément non trouvé' });
     res.json(result.rows[0]);
   } catch (err) {
     respondError(req, res, err, 400);
